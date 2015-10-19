@@ -5,9 +5,12 @@ import java.util.UUID;
 
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.configuration.ConfigurationSection;
 
 import com.avaje.ebean.SqlUpdate;
 import com.winthier.minigames.MinigamesPlugin;
+
+import com.winthier.reward.RewardBuilder;
 
 public class GamePlayer
 {
@@ -39,6 +42,8 @@ public class GamePlayer
 	private int fivePointers = 0;
 	private int totalPoints = 0;
 	private int goldenRings = 0;
+
+        boolean rewarded = false;
 	
 	static enum PlayerType
 	{
@@ -279,5 +284,24 @@ public class GamePlayer
 		}
         
         statsRecorded = true;
+
+        if (moreThanOnePlayed && !rewarded) {
+                rewarded = true;
+                RewardBuilder reward = RewardBuilder.create().uuid(uuid).name(name);
+                ConfigurationSection config = game.getConfigFile("rewards");
+                reward.comment(String.format("Game of Vertigo %s with %d rounds, %d splashes, %d golden rings and %d total points.", (winner ? (superior ? "won" : "won superior") : "played"), roundsPlayed, splashes, goldenRings, totalPoints));
+                for (int i = 0; i < splashes; ++i) reward.config(config.getConfigurationSection("splash"));
+                for (int i = 0; i < onePointers; ++i) reward.config(config.getConfigurationSection("splash1point"));
+                for (int i = 0; i < twoPointers; ++i) reward.config(config.getConfigurationSection("splash2points"));
+                for (int i = 0; i < threePointers; ++i) reward.config(config.getConfigurationSection("splash3points"));
+                for (int i = 0; i < fourPointers; ++i) reward.config(config.getConfigurationSection("splash4points"));
+                for (int i = 0; i < fivePointers; ++i) reward.config(config.getConfigurationSection("splash5points"));
+                for (int i = 0; i < goldenRings; ++i) reward.config(config.getConfigurationSection("golden_ring"));
+                if (splashes >= 5) {
+                        if (winner) reward.config(config.getConfigurationSection("win"));
+                        if (superior) reward.config(config.getConfigurationSection("superior"));
+                }
+                reward.store();
+        }
     }
 }
