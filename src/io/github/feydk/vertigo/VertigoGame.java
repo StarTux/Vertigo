@@ -36,12 +36,12 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Skull;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPortalEnterEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -132,7 +132,7 @@ public class VertigoGame extends Game implements Listener
     @Override
     public void onEnable()
     {
-    	FileConfiguration config = getConfigFile("config");
+    	ConfigurationSection config = getConfigFile("config");
     	
     	mapID = getConfig().getString("MapID", mapID);
         mapPath = getConfig().getString("MapPath", config.getString("general.defaultMapPath"));
