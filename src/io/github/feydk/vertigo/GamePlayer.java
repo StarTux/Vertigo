@@ -297,6 +297,7 @@ public class GamePlayer
                 for (int i = 0; i < fourPointers; ++i) reward.config(config.getConfigurationSection("splash4points"));
                 for (int i = 0; i < fivePointers; ++i) reward.config(config.getConfigurationSection("splash5points"));
                 for (int i = 0; i < goldenRings; ++i) reward.config(config.getConfigurationSection("golden_ring"));
+                for (int i = 0; i < splashes; ++i) reward.config(config.getConfigurationSection("splashed" + i + "times"));
                 if (splashes >= 5) {
                         if (winner) reward.config(config.getConfigurationSection("win"));
                         if (superior) reward.config(config.getConfigurationSection("superior"));
