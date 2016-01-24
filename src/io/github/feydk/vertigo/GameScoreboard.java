@@ -145,7 +145,9 @@ public class GameScoreboard
 			}
 			
 			if(pos1 - pos2 >= lead)
+			{
 				return true;
+			}
 		}
 		
 		return false;
@@ -186,7 +188,7 @@ public class GameScoreboard
 		{
 			if(entry.getValue() == max)
 			{
-				System.out.println(entry.getKey().getName() + ": " + entry.getValue());
+				//System.out.println(entry.getKey().getName() + ": " + entry.getValue());
 				winners.add(entry.getKey());
 			}
 		}
