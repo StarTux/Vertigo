@@ -1173,7 +1173,7 @@ public class VertigoGame extends Game implements Listener
 
 		Random r = new Random(System.currentTimeMillis());
 		String[] strings = { "It's your turn.", "You're up!", "You're next." };
-		String[] strings2 = { "Good luck ?", "Don't break a leg ;-)", "Geronimo!" };
+		String[] strings2 = { "Good luck ツ", "Don't break a leg ;-)", "Geronimo!" };
 
 		Title.show(player, "", "§6" + strings[r.nextInt(strings.length)] + " " + strings2[r.nextInt(strings2.length)]);
 
