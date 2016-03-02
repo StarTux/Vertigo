@@ -8,9 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
+import com.connorlinfoot.actionbarapi.ActionBarAPI;
 import com.winthier.minigames.MinigamesPlugin;
 import com.winthier.minigames.event.player.PlayerLeaveEvent;
 import com.winthier.minigames.game.Game;
@@ -51,7 +50,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 public class VertigoGame extends Game implements Listener
 {		
 	World world;
-	static String nmsver;
+	//static String nmsver;
 
 	// Stuff for keeping track of the game loop and ticks.
 	GameState state;
@@ -196,8 +195,8 @@ public class VertigoGame extends Game implements Listener
 		   }
 		}, mapPath);
 	
-		nmsver = MinigamesPlugin.getInstance().getServer().getClass().getPackage().getName();
-		nmsver = nmsver.substring(nmsver.lastIndexOf(".") + 1);
+		//nmsver = MinigamesPlugin.getInstance().getServer().getClass().getPackage().getName();
+		//nmsver = nmsver.substring(nmsver.lastIndexOf(".") + 1);
 	}
 
 	private void onWorldsLoaded(WorldLoader worldLoader)
@@ -411,7 +410,7 @@ public class VertigoGame extends Game implements Listener
 				{
 					getGamePlayer(player).setSpectator();
 					
-					player.playSound(player.getEyeLocation(), Sound.ENDERDRAGON_DEATH, 1f, 1f);
+					player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERDRAGON_DEATH, 1f, 1f);
 				}
 												
 				scoreboard.setTitle("Game over");
@@ -525,7 +524,7 @@ public class VertigoGame extends Game implements Listener
 				if(seconds == 0)
 				{
 					Title.show(player, "", "");
-					player.playSound(player.getEyeLocation(), Sound.FIREWORK_LARGE_BLAST, 1f, 1f);
+					player.playSound(player.getEyeLocation(), Sound.ENTITY_FIREWORK_LARGE_BLAST, 1f, 1f);
 				}
 				else if(seconds == countdownToStartDuration)
 				{
@@ -1177,7 +1176,7 @@ public class VertigoGame extends Game implements Listener
 
 		Title.show(player, "", "§6" + strings[r.nextInt(strings.length)] + " " + strings2[r.nextInt(strings2.length)]);
 
-		player.playSound(player.getLocation(), Sound.GHAST_SCREAM2, 1, 1);
+		player.playSound(player.getLocation(), Sound.ENTITY_GHAST_SCREAM, 1, 1);
 
 		new BukkitRunnable()
 		{
@@ -1261,7 +1260,7 @@ public class VertigoGame extends Game implements Listener
 		for(Player p : getOnlinePlayers())
 		{
 			Msg.send(p, chatPrefix + "§cSplat! §3" + player.getName() + " §c" + string);
-			p.playSound(p.getLocation(), Sound.FALL_BIG, 1, 1);
+			p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BIG_FALL, 1, 1);
 		}
 
 		//summonRocket(landingLocation.subtract(0, 1, 0), Color.RED);
@@ -1340,9 +1339,9 @@ public class VertigoGame extends Game implements Listener
 			Msg.send(p, msg);
 	
 			if(currentJumperPassedRing)
-				p.playSound(p.getLocation(), Sound.LEVEL_UP, 1, 1);
+				p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
 			else
-				p.playSound(p.getLocation(), Sound.SUCCESSFUL_HIT, 1, 1);
+				p.playSound(p.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1, 1);
 		}
 
 		Title.show(player, "", "§9Splash! §6+ " + score + " point" + (score > 1 ? "s" : ""));
@@ -1449,182 +1448,182 @@ public class VertigoGame extends Game implements Listener
 		{
 			List<PlayerStats> list = PlayerStats.loadTopWinners();
 			
-			json += "{text: \" §6»» §bVertigo top dogs §6««\n\"}, ";
+			json += "{\"text\": \" §6»» §bVertigo top dogs §6««\n\"}, ";
 
 			int i = 0;
 			for(PlayerStats obj : list)
 			{
 				if(i == 0)
-					json += "{text: \" §3Current leader: \"}, ";
+					json += "{\"text\": \" §3Current leader: \"}, ";
 				else
-					json += "{text: \" §3Runner-up: \"}, ";
+					json += "{\"text\": \" §3Runner-up: \"}, ";
 	
-				json += "{text: \"§b" + obj.getName() + " §fwith §b" + obj.getGamesWon() + " §fwin" + (obj.getGamesWon() == 1 ? "" : "s") + "\"}, ";
+				json += "{\"text\": \"§b" + obj.getName() + " §fwith §b" + obj.getGamesWon() + " §fwin" + (obj.getGamesWon() == 1 ? "" : "s") + "\"}, ";
 	
 				if(obj.getSuperiorWins() > 0)
-					json += "{text: \"§f, of which §b" + obj.getSuperiorWins() + " §f" + (obj.getSuperiorWins() == 1 ? "is a" : "are") + " §asuperior win" + (obj.getSuperiorWins() == 1 ? "" : "s") + "\"}, ";
+					json += "{\"text\": \"§f, of which §b" + obj.getSuperiorWins() + " §f" + (obj.getSuperiorWins() == 1 ? "is a" : "are") + " §asuperior win" + (obj.getSuperiorWins() == 1 ? "" : "s") + "\"}, ";
 	
-				json += "{text: \"§f.\n\"}, ";
+				json += "{\"text\": \"§f.\n\"}, ";
 	
 				i++;
 			}
 
 			if(i == 0)
 			{
-				json += "{text: \" §fNothing in this category yet. You can be the first ?\n\"}, ";
+				json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
 			}
 		}
 		else if(type == 1)
 		{
 			List<PlayerStats> list = PlayerStats.loadTopSplashers();
 				
-			json += "{text: \" §6»» §bVertigo top splashers §6««\n\"}, ";
+			json += "{\"text\": \" §6»» §bVertigo top splashers §6««\n\"}, ";
 	
 			int i = 0;
 			for(PlayerStats obj : list)
 			{
 				if(i == 0)
-					json += "{text: \" §3Current leader: \"}, ";
+					json += "{\"text\": \" §3Current leader: \"}, ";
 				else
-					json += "{text: \" §3Runner-up: \"}, ";
+					json += "{\"text\": \" §3Runner-up: \"}, ";
 		
-				json += "{text: \"§b" + obj.getName() + " §fwith §b" + obj.getSplashes() + " §fsplash" + (obj.getSplashes() == 1 ? "" : "es") + ".\n\"}, ";
+				json += "{\"text\": \"§b" + obj.getName() + " §fwith §b" + obj.getSplashes() + " §fsplash" + (obj.getSplashes() == 1 ? "" : "es") + ".\n\"}, ";
 		
 				i++;
 			}
 	
 			if(i == 0)
 			{
-				json += "{text: \" §fNothing in this category yet. You can be the first ?\n\"}, ";
+				json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
 			}
 		}
 		else if(type == 2)
 		{
 			List<PlayerStats> list = PlayerStats.loadTopSplatters();
 				
-			json += "{text: \" §6»» §bVertigo top broken legs §6««\n\"}, ";
+			json += "{\"text\": \" §6»» §bVertigo top broken legs §6««\n\"}, ";
 	
 			int i = 0;
 			for(PlayerStats obj : list)
 			{
 				if(i == 0)
-					json += "{text: \" §3Current leader: \"}, ";
+					json += "{\"text\": \" §3Current leader: \"}, ";
 				else
-					json += "{text: \" §3Runner-up: \"}, ";
+					json += "{\"text\": \" §3Runner-up: \"}, ";
 		
-				json += "{text: \"§b" + obj.getName() + " §fbroke their legs §b" + obj.getSplats() + " §ftime" + (obj.getSplats() == 1 ? "" : "s") + ".\n\"}, ";
+				json += "{\"text\": \"§b" + obj.getName() + " §fbroke their legs §b" + obj.getSplats() + " §ftime" + (obj.getSplats() == 1 ? "" : "s") + ".\n\"}, ";
 		
 				i++;
 			}
 	
 			if(i == 0)
 			{
-				json += "{text: \" §fNothing in this category yet. You can be the first ?\n\"}, ";
+				json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
 			}
 		}
 		else if(type == 3)
 		{
 			List<PlayerStats> list = PlayerStats.loadTopScorers();
 				
-			json += "{text: \" §6»» §bVertigo top scorers §6««\n\"}, ";
+			json += "{\"text\": \" §6»» §bVertigo top scorers §6««\n\"}, ";
 	
 			int i = 0;
 			for(PlayerStats obj : list)
 			{
 				if(i == 0)
-					json += "{text: \" §3Current leader: \"}, ";
+					json += "{\"text\": \" §3Current leader: \"}, ";
 				else
-					json += "{text: \" §3Runner-up: \"}, ";
+					json += "{\"text\": \" §3Runner-up: \"}, ";
 		
-				json += "{text: \"§b" + obj.getName() + " §fhas acquired §b" + obj.getPoints() + " §fpoint" + (obj.getPoints() == 1 ? "" : "s") + ".\n\"}, ";
+				json += "{\"text\": \"§b" + obj.getName() + " §fhas acquired §b" + obj.getPoints() + " §fpoint" + (obj.getPoints() == 1 ? "" : "s") + ".\n\"}, ";
 		
 				i++;
 			}
 	
 			if(i == 0)
 			{
-				json += "{text: \" §fNothing in this category yet. You can be the first ?\n\"}, ";
+				json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
 			}
 		}
 		else if(type == 4)
 		{
 			List<PlayerStats> list = PlayerStats.loadTopContestants();
 				
-			json += "{text: \" §6»» §bVertigo top contestants §6««\n\"}, ";
+			json += "{\"text\": \" §6»» §bVertigo top contestants §6««\n\"}, ";
 	
 			int i = 0;
 			for(PlayerStats obj : list)
 			{
 				if(i == 0)
-					json += "{text: \" §3Current leader: \"}, ";
+					json += "{\"text\": \" §3Current leader: \"}, ";
 				else
-					json += "{text: \" §3Runner-up: \"}, ";
+					json += "{\"text\": \" §3Runner-up: \"}, ";
 		
-				json += "{text: \"§b" + obj.getName() + " §fhas played §b" + obj.getGamesPlayed() + " §fgame" + (obj.getGamesPlayed() == 1 ? "" : "s") + "\"}, ";
+				json += "{\"text\": \"§b" + obj.getName() + " §fhas played §b" + obj.getGamesPlayed() + " §fgame" + (obj.getGamesPlayed() == 1 ? "" : "s") + "\"}, ";
 		
 				if(obj.getRoundsPlayed() > 0)
-					json += "{text: \"§f, and a total of §b" + obj.getRoundsPlayed() + " §fround" + (obj.getRoundsPlayed() == 1 ? "" : "s") + "\"}, ";
+					json += "{\"text\": \"§f, and a total of §b" + obj.getRoundsPlayed() + " §fround" + (obj.getRoundsPlayed() == 1 ? "" : "s") + "\"}, ";
 		
-				json += "{text: \"§f.\n\"}, ";
+				json += "{\"text\": \"§f.\n\"}, ";
 		
 				i++;
 			}
 	
 			if(i == 0)
 			{
-				json += "{text: \" §fNothing in this category yet. You can be the first ?\n\"}, ";
+				json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
 			}
 		}
 		else if(type == 5)
 		{
 			List<PlayerStats> list = PlayerStats.loadTopRingers();
 				
-			json += "{text: \" §6»» §bVertigo top ring jumpers §6««\n\"}, ";
+			json += "{\"text\": \" §6»» §bVertigo top ring jumpers §6««\n\"}, ";
 	
 			int i = 0;
 			for(PlayerStats obj : list)
 			{
 				if(i == 0)
-					json += "{text: \" §3Current leader: \"}, ";
+					json += "{\"text\": \" §3Current leader: \"}, ";
 				else
-					json += "{text: \" §3Runner-up: \"}, ";
+					json += "{\"text\": \" §3Runner-up: \"}, ";
 		
-				json += "{text: \"§b" + obj.getName() + " §fhas jumped §b" + obj.getGoldenRings() + " §fgolden ring" + (obj.getGoldenRings() == 1 ? "" : "s") + ".\n\"}, ";
+				json += "{\"text\": \"§b" + obj.getName() + " §fhas jumped §b" + obj.getGoldenRings() + " §fgolden ring" + (obj.getGoldenRings() == 1 ? "" : "s") + ".\n\"}, ";
 		
 				i++;
 			}
 	
 			if(i == 0)
 			{
-				json += "{text: \" §fNothing in this category yet. You can be the first ?\n\"}, ";
+				json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
 			}
 		}
 
-		json += "{text: \"\n §eOther stats:\n\"}, ";
+		json += "{\"text\": \"\n §eOther stats:\n\"}, ";
 
 		if(type != 0)
-			json += "{text: \" §f[§bWins§f]\", clickEvent: {action: \"run_command\", value: \"/hi 0\" }, hoverEvent: {action: \"show_text\", value: \"§fSee who won the most games.\"}}, ";
+			json += "{\"text\": \" §f[§bWins§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 0\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who won the most games.\"}}, ";
 				
 		if(type != 3)
-			json += "{text: \" §f[§bScorers§f]\", clickEvent: {action: \"run_command\", value: \"/hi 3\" }, hoverEvent: {action: \"show_text\", value: \"§fSee who acquired most points.\"}}, ";
+			json += "{\"text\": \" §f[§bScorers§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 3\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who acquired most points.\"}}, ";
 
 		if(type != 4)
-			json += "{text: \" §f[§bContestants§f]\", clickEvent: {action: \"run_command\", value: \"/hi 4\" }, hoverEvent: {action: \"show_text\", value: \"§fSee who played the most.\"}}, ";
+			json += "{\"text\": \" §f[§bContestants§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 4\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who played the most.\"}}, ";
 
-		json += "{text: \" \n\"}, ";
+		json += "{\"text\": \" \n\"}, ";
 
 		if(type != 1)
-			json += "{text: \" §f[§bSplashers§f]\", clickEvent: {action: \"run_command\", value: \"/hi 1\" }, hoverEvent: {action: \"show_text\", value: \"§fSee who splashed the most.\"}}, ";
+			json += "{\"text\": \" §f[§bSplashers§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 1\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who splashed the most.\"}}, ";
 
 		if(type != 2)
-			json += "{text: \" §f[§bSplatters§f]\", clickEvent: {action: \"run_command\", value: \"/hi 2\" }, hoverEvent: {action: \"show_text\", value: \"§fSee who splatted the most.\"}}, ";
+			json += "{\"text\": \" §f[§bSplatters§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 2\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who splatted the most.\"}}, ";
 		
 		if(type != 5)
-			json += "{text: \" §f[§bRing jumpers§f]\", clickEvent: {action: \"run_command\", value: \"/hi 5\" }, hoverEvent: {action: \"show_text\", value: \"§fSee who jumped the most golden rings.\"}}, ";
+			json += "{\"text\": \" §f[§bRing jumpers§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 5\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who jumped the most golden rings.\"}}, ";
 				
-		json += "{text: \"\n §f[§6See your own stats§f]\", clickEvent: {action: \"run_command\", value: \"/stats\" }, hoverEvent: {action: \"show_text\", value: \"§fSee your personal stats.\"}}, ";
+		json += "{\"text\": \"\n §f[§6See your own stats§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/stats\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee your personal stats.\"}}, ";
 				
-		json += "{text: \" \n\"} ";
+		json += "{\"text\": \" \n\"} ";
 		json += "] ";
 
 		return json;
@@ -1638,28 +1637,28 @@ public class VertigoGame extends Game implements Listener
 		if(stats.getGamesPlayed() > 0)
 		{
 			String json = "[";
-			json += "{text: \" §3§l§m   §3 Stats for §b" + name + " §3§l§m   \n\"}, ";
+			json += "{\"text\": \" §3§l§m   §3 Stats for §b" + name + " §3§l§m   \n\"}, ";
 
 			String who = player.getName().equalsIgnoreCase(name) ? "You have" : name + " has";
 
-			json += "{text: \" §f" + who + " played §b" + stats.getGamesPlayed() + " §fgame" + (stats.getGamesPlayed() == 1 ? "" : "s") + " of Vertigo.\n\"}, ";
-			json += "{text: \" §6Notable stats:\n\"}, ";
-			json += "{text: \" §b" + stats.getRoundsPlayed() + " §fround" + (stats.getRoundsPlayed() == 1 ? "" : "s") + " played §7/\"}, ";
-			json += "{text: \" §b" + stats.getGamesWon() + " §fwin" + (stats.getGamesWon() == 1 ? "" : "s") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getSuperiorWins() + " §fsuperior win" + (stats.getSuperiorWins() == 1 ? "" : "s") + "\n\"}, ";
-			json += "{text: \" §b" + stats.getSplashes() + " §fsplash" + (stats.getSplashes() == 1 ? "" : "es") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getSplats() + " §fsplat" + (stats.getSplats() == 1 ? "" : "s") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getGoldenRings() + " §fgolden ring" + (stats.getGoldenRings() == 1 ? "" : "s") + "\n\"}, ";
+			json += "{\"text\": \" §f" + who + " played §b" + stats.getGamesPlayed() + " §fgame" + (stats.getGamesPlayed() == 1 ? "" : "s") + " of Vertigo.\n\"}, ";
+			json += "{\"text\": \" §6Notable stats:\n\"}, ";
+			json += "{\"text\": \" §b" + stats.getRoundsPlayed() + " §fround" + (stats.getRoundsPlayed() == 1 ? "" : "s") + " played §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getGamesWon() + " §fwin" + (stats.getGamesWon() == 1 ? "" : "s") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getSuperiorWins() + " §fsuperior win" + (stats.getSuperiorWins() == 1 ? "" : "s") + "\n\"}, ";
+			json += "{\"text\": \" §b" + stats.getSplashes() + " §fsplash" + (stats.getSplashes() == 1 ? "" : "es") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getSplats() + " §fsplat" + (stats.getSplats() == 1 ? "" : "s") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getGoldenRings() + " §fgolden ring" + (stats.getGoldenRings() == 1 ? "" : "s") + "\n\"}, ";
 
-			json += "{text: \" §6Points acquired:\n\"}, ";
-			json += "{text: \" §b" + stats.getPoints() + " §ftotal point" + (stats.getPoints() == 1 ? "" : "s") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getOnePointers() + " §fone pointer" + (stats.getOnePointers() == 1 ? "" : "s") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getTwoPointers() + " §ftwo pointer" + (stats.getTwoPointers() == 1 ? "" : "s") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getThreePointers() + " §fthree pointer" + (stats.getThreePointers() == 1 ? "" : "s") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getFourPointers() + " §ffour pointer" + (stats.getFourPointers() == 1 ? "" : "s") + " §7/\"}, ";
-			json += "{text: \" §b" + stats.getFivePointers() + " §ffive pointer" + (stats.getFivePointers() == 1 ? "" : "s") + " \n\"}, ";
+			json += "{\"text\": \" §6Points acquired:\n\"}, ";
+			json += "{\"text\": \" §b" + stats.getPoints() + " §ftotal point" + (stats.getPoints() == 1 ? "" : "s") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getOnePointers() + " §fone pointer" + (stats.getOnePointers() == 1 ? "" : "s") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getTwoPointers() + " §ftwo pointer" + (stats.getTwoPointers() == 1 ? "" : "s") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getThreePointers() + " §fthree pointer" + (stats.getThreePointers() == 1 ? "" : "s") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getFourPointers() + " §ffour pointer" + (stats.getFourPointers() == 1 ? "" : "s") + " §7/\"}, ";
+			json += "{\"text\": \" §b" + stats.getFivePointers() + " §ffive pointer" + (stats.getFivePointers() == 1 ? "" : "s") + " \n\"}, ";
 
-			json += "{text: \" \n\"} ";
+			json += "{\"text\": \" \n\"} ";
 			json += "] ";
 
 			sendJsonMessage(player, json);
@@ -1673,7 +1672,8 @@ public class VertigoGame extends Game implements Listener
 	// Snatched from https://github.com/Webbeh/ActionBarAPI/blob/master/src/com/connorlinfoot/actionbarapi/ActionBarAPI.java
 	public static void sendActionBar(Player player, String message)
 	{
-		try
+		ActionBarAPI.sendActionBar(player, message);
+		/*try
 		{
 			Class<?> c1 = Class.forName("org.bukkit.craftbukkit." + nmsver + ".entity.CraftPlayer");
 			Object p = c1.cast(player);
@@ -1707,7 +1707,7 @@ public class VertigoGame extends Game implements Listener
 		catch(Exception ex)
 		{
 			// Do nothing. This action bar message is a bonus if it works. If it doesn't, there's no fallback anyway, so just ignore it.
-		}
+		}*/
 	}
 
 	private boolean sendJsonMessage(Player player, String json)

@@ -78,6 +78,7 @@ public class GameScoreboard
 		objective.setDisplayName(title);
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void setPlayerCurrent(Player player)
 	{
 		resetCurrent();
@@ -85,6 +86,7 @@ public class GameScoreboard
 		currentJumperTeam.addPlayer(player);
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void resetCurrent()
 	{
 		for(OfflinePlayer p : currentJumperTeam.getPlayers())
