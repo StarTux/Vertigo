@@ -289,7 +289,7 @@ public class GamePlayer
                 rewarded = true;
                 RewardBuilder reward = RewardBuilder.create().uuid(uuid).name(name);
                 ConfigurationSection config = game.getConfigFile("rewards");
-                reward.comment(String.format("Game of Vertigo %s with %d rounds, %d splashes, %d golden rings and %d total points.", (winner ? (superior ? "won" : "won superior") : "played"), roundsPlayed, splashes, goldenRings, totalPoints));
+                reward.comment(String.format("Game of Vertigo %s with %d rounds, %d splashes, %d golden rings and %d total points.", (winner ? (superior ? "won superior" : "won") : "played"), roundsPlayed, splashes, goldenRings, totalPoints));
                 for (int i = 0; i < splashes; ++i) reward.config(config.getConfigurationSection("splash"));
                 for (int i = 0; i < onePointers; ++i) reward.config(config.getConfigurationSection("splash1point"));
                 for (int i = 0; i < twoPointers; ++i) reward.config(config.getConfigurationSection("splash2points"));
