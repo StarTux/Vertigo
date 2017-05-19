@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
-import com.connorlinfoot.actionbarapi.ActionBarAPI;
 import com.winthier.minigames.MinigamesPlugin;
 import com.winthier.minigames.event.player.PlayerLeaveEvent;
 import com.winthier.minigames.game.Game;
@@ -177,7 +176,7 @@ public class VertigoGame extends Game implements Listener
 	
 		try
 		{
-			MinigamesPlugin.getInstance().getDatabase().createSqlUpdate(sql).execute();
+			MinigamesPlugin.getInstance().getDb().executeUpdate(sql);
 		}
 		catch(Exception e)
 		{
@@ -584,7 +583,7 @@ public class VertigoGame extends Game implements Listener
 					if(secsLeft <= 3)
 							msg = "§3»» §4 You have §c" + secsLeft + " §4second" + (secsLeft > 1 ? "s" : "") + " to jump §3««";
 
-					sendActionBar(currentJumper, msg);
+					Msg.sendActionBar(currentJumper, msg);
 				}
 			}
 		}
@@ -1002,7 +1001,7 @@ public class VertigoGame extends Game implements Listener
 		if(!currentJumperHasJumped)
 		{
 			currentJumperHasJumped = true;
-			sendActionBar(player, "");
+			Msg.sendActionBar(player, "");
 		}
 		if(currentRingCenter != null && !currentJumperPassedRing)
 		{
@@ -1198,7 +1197,7 @@ public class VertigoGame extends Game implements Listener
 
 	private void onAfraidOfHeights(Player player)
 	{
-		sendActionBar(player, "");
+		Msg.sendActionBar(player, "");
 
 		Random r = new Random(System.currentTimeMillis());
 		String[] strings = { "was too afraid to jump.", "chickened out.", "couldn't overcome their acrophobia.", "had a bad case of vertigo." };
@@ -1238,7 +1237,7 @@ public class VertigoGame extends Game implements Listener
 
 	private void onBrokenLegs(Player player, Location landingLocation)
 	{
-		sendActionBar(player, "");
+		Msg.sendActionBar(player, "");
 
 		currentJumper = null;
 
@@ -1273,7 +1272,7 @@ public class VertigoGame extends Game implements Listener
 	@SuppressWarnings("deprecation")
 	private void onSplash(Player player, Location landingLocation)
 	{
-		sendActionBar(player, "");
+		Msg.sendActionBar(player, "");
 
 		currentJumper = null;
 
@@ -1667,47 +1666,6 @@ public class VertigoGame extends Game implements Listener
 		{
 			Msg.send(player, " No stats recorded for " + name);
 		}
-	}
-
-	// Snatched from https://github.com/Webbeh/ActionBarAPI/blob/master/src/com/connorlinfoot/actionbarapi/ActionBarAPI.java
-	public static void sendActionBar(Player player, String message)
-	{
-		ActionBarAPI.sendActionBar(player, message);
-		/*try
-		{
-			Class<?> c1 = Class.forName("org.bukkit.craftbukkit." + nmsver + ".entity.CraftPlayer");
-			Object p = c1.cast(player);
-			Object ppoc = null;
-			Class<?> c4 = Class.forName("net.minecraft.server." + nmsver + ".PacketPlayOutChat");
-			Class<?> c5 = Class.forName("net.minecraft.server." + nmsver + ".Packet");
-
-			if(nmsver.equalsIgnoreCase("v1_8_R1") || !nmsver.startsWith("v1_8_"))
-			{
-				Class<?> c2 = Class.forName("net.minecraft.server." + nmsver + ".ChatSerializer");
-				Class<?> c3 = Class.forName("net.minecraft.server." + nmsver + ".IChatBaseComponent");
-				Method m3 = c2.getDeclaredMethod("a", new Class<?>[] {String.class});
-				Object cbc = c3.cast(m3.invoke(c2, "{\"text\": \"" + message + "\"}"));
-				ppoc = c4.getConstructor(new Class<?>[] {c3, byte.class}).newInstance(new Object[] {cbc, (byte) 2});
-			}
-			else
-			{
-				Class<?> c2 = Class.forName("net.minecraft.server." + nmsver + ".ChatComponentText");
-				Class<?> c3 = Class.forName("net.minecraft.server." + nmsver + ".IChatBaseComponent");
-				Object o = c2.getConstructor(new Class<?>[] {String.class}).newInstance(new Object[] {message});
-				ppoc = c4.getConstructor(new Class<?>[] {c3, byte.class}).newInstance(new Object[] {o, (byte) 2});
-			}
-
-			Method m1 = c1.getDeclaredMethod("getHandle", new Class<?>[] {});
-			Object h = m1.invoke(p);
-			Field f1 = h.getClass().getDeclaredField("playerConnection");
-			Object pc = f1.get(h);
-			Method m5 = pc.getClass().getDeclaredMethod("sendPacket", new Class<?>[] {c5});
-			m5.invoke(pc, ppoc);
-		}
-		catch(Exception ex)
-		{
-			// Do nothing. This action bar message is a bonus if it works. If it doesn't, there's no fallback anyway, so just ignore it.
-		}*/
 	}
 
 	private boolean sendJsonMessage(Player player, String json)

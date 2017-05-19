@@ -1,5 +1,7 @@
 package io.github.feydk.vertigo;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Date;
 import java.util.UUID;
 
@@ -7,7 +9,6 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.avaje.ebean.SqlUpdate;
 import com.winthier.minigames.MinigamesPlugin;
 
 import com.winthier.reward.RewardBuilder;
@@ -43,7 +44,7 @@ public class GamePlayer
 	private int totalPoints = 0;
 	private int goldenRings = 0;
 
-        boolean rewarded = false;
+	boolean rewarded = false;
 	
 	static enum PlayerType
 	{
@@ -208,14 +209,13 @@ public class GamePlayer
 	
 	public void updateStatsName()
 	{
-		String sql = "update `vertigo_playerstats` set `player_name` = :name where `player_uuid` = :uuid";
+		String sql = "update `vertigo_playerstats` set `player_name` = ? where `player_uuid` = ?";
 		
-		try
+		try (PreparedStatement update = MinigamesPlugin.getInstance().getDb().getConnection().prepareStatement(sql))
 		{
-			SqlUpdate update = MinigamesPlugin.getInstance().getDatabase().createSqlUpdate(sql);
-			update.setParameter("name", getName());
-			update.setParameter("uuid", this.uuid);
-			update.execute();
+			update.setString(1, getName());
+			update.setString(2, this.uuid.toString());
+			update.executeUpdate();
 		}
 		catch(Exception e)
 		{
@@ -226,55 +226,54 @@ public class GamePlayer
 	@SuppressWarnings("incomplete-switch")
 	public void recordStats(boolean moreThanOnePlayed, String mapId)
     {
-        switch(game.state)
-        {
-        	case INIT:
-        	case WAIT_FOR_PLAYERS:
-        		return;
-        }
-        
-        if(!didPlay)
-        	return;
-        
-        if(statsRecorded)
-        	return;
-        
-        if(endTime == null)
+	switch(game.state)
+	{
+		case INIT:
+		case WAIT_FOR_PLAYERS:
+			return;
+	}
+	
+	if(!didPlay)
+		return;
+	
+	if(statsRecorded)
+		return;
+	
+	if(endTime == null)
 			endTime = new Date();
-        
-        superior = splats == 0;
+	
+	superior = splats == 0;
 		
 		final String sql =
 			"insert into `vertigo_playerstats` (" +
 			" `game_uuid`, `player_uuid`, `player_name`, `start_time`, `end_time`, `rounds_played`, `splats`, `splashes`, `chickens`, `superior_win`, `points`, `one_pointers`, `two_pointers`, `three_pointers`, `four_pointers`, `five_pointers`, `golden_rings`, `winner`, `sp_game`, `map_id`" +
 			") values (" +
-			" :gameUuid, :playerUuid, :playerName, :startTime, :endTime, :roundsPlayed, :splats, :splashes, :chickens, :superiorWin, :totalPoints, :onePointers, :twoPointers, :threePointers, :fourPointers, :fivePointers, :goldenRings, :winner, :spGame, :mapId" +
+			" ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?" +
 			")";
 		
-		try
+		try (PreparedStatement update = MinigamesPlugin.getInstance().getDb().getConnection().prepareStatement(sql))
 		{
-			SqlUpdate update = MinigamesPlugin.getInstance().getDatabase().createSqlUpdate(sql);
-			update.setParameter("gameUuid", game.gameUuid);
-			update.setParameter("playerUuid", uuid);
-			update.setParameter("playerName", name);
-			update.setParameter("startTime", startTime);
-			update.setParameter("endTime", endTime);
-			update.setParameter("roundsPlayed", roundsPlayed);
-			update.setParameter("splats", splats);
-			update.setParameter("splashes", splashes);
-			update.setParameter("chickens", chickens);
-			update.setParameter("superiorWin", superior);
-			update.setParameter("totalPoints", totalPoints);
-			update.setParameter("onePointers", onePointers);
-			update.setParameter("twoPointers", twoPointers);
-			update.setParameter("threePointers", threePointers);
-			update.setParameter("fourPointers", fourPointers);
-			update.setParameter("fivePointers", fivePointers);
-			update.setParameter("goldenRings", goldenRings);
-			update.setParameter("winner", winner);
-			update.setParameter("spGame", !moreThanOnePlayed);
-			update.setParameter("mapId", mapId);
-			update.execute();
+			update.setString(1, game.gameUuid.toString());
+			update.setString(2, uuid.toString());
+			update.setString(3, name);
+			update.setTimestamp(4, new java.sql.Timestamp(startTime.getTime()));
+			update.setTimestamp(5, new java.sql.Timestamp(endTime.getTime()));
+			update.setInt(6, roundsPlayed);
+			update.setInt(7, splats);
+			update.setInt(8, splashes);
+			update.setInt(9, chickens);
+			update.setBoolean(10, superior);
+			update.setInt(11, totalPoints);
+			update.setInt(12, onePointers);
+			update.setInt(13, twoPointers);
+			update.setInt(14, threePointers);
+			update.setInt(15, fourPointers);
+			update.setInt(16, fivePointers);
+			update.setInt(17, goldenRings);
+			update.setBoolean(18, winner);
+			update.setBoolean(19, !moreThanOnePlayed);
+			update.setString(20, mapId);
+			update.executeUpdate();
 			
 			game.getLogger().info("Stored player stats of " + name);
 		}
@@ -282,27 +281,27 @@ public class GamePlayer
 		{
 			e.printStackTrace();
 		}
-        
-        statsRecorded = true;
+	
+	statsRecorded = true;
 
-        if (moreThanOnePlayed && !rewarded) {
-                rewarded = true;
-                RewardBuilder reward = RewardBuilder.create().uuid(uuid).name(name);
-                ConfigurationSection config = game.getConfigFile("rewards");
-                reward.comment(String.format("Game of Vertigo %s with %d rounds, %d splashes, %d golden rings and %d total points.", (winner ? (superior ? "won superior" : "won") : "played"), roundsPlayed, splashes, goldenRings, totalPoints));
-                for (int i = 0; i < splashes; ++i) reward.config(config.getConfigurationSection("splash"));
-                for (int i = 0; i < onePointers; ++i) reward.config(config.getConfigurationSection("splash1point"));
-                for (int i = 0; i < twoPointers; ++i) reward.config(config.getConfigurationSection("splash2points"));
-                for (int i = 0; i < threePointers; ++i) reward.config(config.getConfigurationSection("splash3points"));
-                for (int i = 0; i < fourPointers; ++i) reward.config(config.getConfigurationSection("splash4points"));
-                for (int i = 0; i < fivePointers; ++i) reward.config(config.getConfigurationSection("splash5points"));
-                for (int i = 0; i < goldenRings; ++i) reward.config(config.getConfigurationSection("golden_ring"));
-                for (int i = 0; i < splashes; ++i) reward.config(config.getConfigurationSection("splashed" + i + "times"));
-                if (splashes >= 5) {
-                        if (winner) reward.config(config.getConfigurationSection("win"));
-                        if (superior) reward.config(config.getConfigurationSection("superior"));
-                }
-                reward.store();
-        }
+	if (moreThanOnePlayed && !rewarded) {
+		rewarded = true;
+		RewardBuilder reward = RewardBuilder.create().uuid(uuid).name(name);
+		ConfigurationSection config = game.getConfigFile("rewards");
+		reward.comment(String.format("Game of Vertigo %s with %d rounds, %d splashes, %d golden rings and %d total points.", (winner ? (superior ? "won superior" : "won") : "played"), roundsPlayed, splashes, goldenRings, totalPoints));
+		for (int i = 0; i < splashes; ++i) reward.config(config.getConfigurationSection("splash"));
+		for (int i = 0; i < onePointers; ++i) reward.config(config.getConfigurationSection("splash1point"));
+		for (int i = 0; i < twoPointers; ++i) reward.config(config.getConfigurationSection("splash2points"));
+		for (int i = 0; i < threePointers; ++i) reward.config(config.getConfigurationSection("splash3points"));
+		for (int i = 0; i < fourPointers; ++i) reward.config(config.getConfigurationSection("splash4points"));
+		for (int i = 0; i < fivePointers; ++i) reward.config(config.getConfigurationSection("splash5points"));
+		for (int i = 0; i < goldenRings; ++i) reward.config(config.getConfigurationSection("golden_ring"));
+		for (int i = 0; i < splashes; ++i) reward.config(config.getConfigurationSection("splashed" + i + "times"));
+		if (splashes >= 5) {
+			if (winner) reward.config(config.getConfigurationSection("win"));
+			if (superior) reward.config(config.getConfigurationSection("superior"));
+		}
+		reward.store();
+	}
     }
 }

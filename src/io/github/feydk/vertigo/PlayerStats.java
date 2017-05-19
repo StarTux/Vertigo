@@ -1,10 +1,11 @@
 package io.github.feydk.vertigo;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import com.avaje.ebean.SqlQuery;
-import com.avaje.ebean.SqlRow;
 import com.winthier.minigames.MinigamesPlugin;
 
 public class PlayerStats
@@ -182,29 +183,36 @@ public class PlayerStats
 			"sum(splashes) as splashes, sum(points) as points, sum(one_pointers) as one_pointers, sum(two_pointers) as two_pointers, " +
 			"sum(three_pointers) as three_pointers, sum(four_pointers) as four_pointers, sum(five_pointers) as five_pointers, sum(golden_rings) as golden_rings " +
 			"from vertigo_playerstats " +
-			"where player_name = :name";
+			"where player_name = ?";
 		
-		SqlQuery query = MinigamesPlugin.getInstance().getDatabase().createSqlQuery(sql);
-		query.setParameter("name", name);
-		
-		SqlRow row = query.findUnique();
-		
-		gamesPlayed = row.getInteger("games");
-		
-		if(gamesPlayed > 0)
+		try(PreparedStatement query = MinigamesPlugin.getInstance().getDb().getConnection().prepareStatement(sql))
 		{
-			gamesWon = row.getInteger("wins");
-			splats = row.getInteger("splats");
-			roundsPlayed = row.getInteger("rounds_played");
-			splashes = row.getInteger("splashes");
-			superiorWins = row.getInteger("superior_wins");
-			points = row.getInteger("points");
-			onePointers = row.getInteger("one_pointers");
-			twoPointers = row.getInteger("two_pointers");
-			threePointers = row.getInteger("three_pointers");
-			fourPointers = row.getInteger("four_pointers");
-			fivePointers = row.getInteger("five_pointers");
-			goldenRings = row.getInteger("golden_rings");
+			query.setString(1, name);
+		
+			ResultSet row = query.executeQuery();
+			row.next();
+		
+			gamesPlayed = row.getInt("games");
+		
+			if(gamesPlayed > 0)
+			{
+				gamesWon = row.getInt("wins");
+				splats = row.getInt("splats");
+				roundsPlayed = row.getInt("rounds_played");
+				splashes = row.getInt("splashes");
+				superiorWins = row.getInt("superior_wins");
+				points = row.getInt("points");
+				onePointers = row.getInt("one_pointers");
+				twoPointers = row.getInt("two_pointers");
+				threePointers = row.getInt("three_pointers");
+				fourPointers = row.getInt("four_pointers");
+				fivePointers = row.getInt("five_pointers");
+				goldenRings = row.getInt("golden_rings");
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 	}
 	
@@ -219,15 +227,22 @@ public class PlayerStats
 			"order by wins desc, superior_wins desc limit 0, 3";
 		
 		List<PlayerStats> list = new ArrayList<PlayerStats>();
-		
-		for(SqlRow row : MinigamesPlugin.getInstance().getDatabase().createSqlQuery(sql).findList())
+
+		try(ResultSet row = MinigamesPlugin.getInstance().getDb().executeQuery(sql))
 		{
-			PlayerStats obj = new PlayerStats();
-			obj.setName(row.getString("player_name"));
-			obj.setGamesWon(row.getInteger("wins"));
-			obj.setSuperiorWins(row.getInteger("superior_wins"));
-			
-			list.add(obj);
+			while(row.next())
+			{
+				PlayerStats obj = new PlayerStats();
+				obj.setName(row.getString("player_name"));
+				obj.setGamesWon(row.getInt("wins"));
+				obj.setSuperiorWins(row.getInt("superior_wins"));
+				
+				list.add(obj);
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 		
 		return list;
@@ -245,13 +260,20 @@ public class PlayerStats
 		
 		List<PlayerStats> list = new ArrayList<PlayerStats>();
 		
-		for(SqlRow row : MinigamesPlugin.getInstance().getDatabase().createSqlQuery(sql).findList())
+		try(ResultSet row = MinigamesPlugin.getInstance().getDb().executeQuery(sql))
 		{
-			PlayerStats obj = new PlayerStats();
-			obj.setName(row.getString("player_name"));
-			obj.setSplashes(row.getInteger("splashes"));
-			
-			list.add(obj);
+			while(row.next())
+			{
+				PlayerStats obj = new PlayerStats();
+				obj.setName(row.getString("player_name"));
+				obj.setSplashes(row.getInt("splashes"));
+				
+				list.add(obj);
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 		
 		return list;
@@ -269,13 +291,20 @@ public class PlayerStats
 		
 		List<PlayerStats> list = new ArrayList<PlayerStats>();
 		
-		for(SqlRow row : MinigamesPlugin.getInstance().getDatabase().createSqlQuery(sql).findList())
+		try(ResultSet row = MinigamesPlugin.getInstance().getDb().executeQuery(sql))
 		{
-			PlayerStats obj = new PlayerStats();
-			obj.setName(row.getString("player_name"));
-			obj.setSplats(row.getInteger("splats"));
-			
-			list.add(obj);
+			while(row.next())
+			{
+				PlayerStats obj = new PlayerStats();
+				obj.setName(row.getString("player_name"));
+				obj.setSplats(row.getInt("splats"));
+				
+				list.add(obj);
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 		
 		return list;
@@ -293,13 +322,20 @@ public class PlayerStats
 		
 		List<PlayerStats> list = new ArrayList<PlayerStats>();
 		
-		for(SqlRow row : MinigamesPlugin.getInstance().getDatabase().createSqlQuery(sql).findList())
+		try(ResultSet row = MinigamesPlugin.getInstance().getDb().executeQuery(sql))
 		{
-			PlayerStats obj = new PlayerStats();
-			obj.setName(row.getString("player_name"));
-			obj.setPoints(row.getInteger("points"));
-			
-			list.add(obj);
+			while(row.next())
+			{
+				PlayerStats obj = new PlayerStats();
+				obj.setName(row.getString("player_name"));
+				obj.setPoints(row.getInt("points"));
+				
+				list.add(obj);
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 		
 		return list;
@@ -316,14 +352,21 @@ public class PlayerStats
 		
 		List<PlayerStats> list = new ArrayList<PlayerStats>();
 		
-		for(SqlRow row : MinigamesPlugin.getInstance().getDatabase().createSqlQuery(sql).findList())
+		try(ResultSet row = MinigamesPlugin.getInstance().getDb().executeQuery(sql))
 		{
-			PlayerStats obj = new PlayerStats();
-			obj.setName(row.getString("player_name"));
-			obj.setGamesPlayed(row.getInteger("games"));
-			obj.setRoundsPlayed(row.getInteger("rounds"));
-			
-			list.add(obj);
+			while(row.next())
+			{
+				PlayerStats obj = new PlayerStats();
+				obj.setName(row.getString("player_name"));
+				obj.setGamesPlayed(row.getInt("games"));
+				obj.setRoundsPlayed(row.getInt("rounds"));
+				
+				list.add(obj);
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 		
 		return list;
@@ -341,13 +384,20 @@ public class PlayerStats
 		
 		List<PlayerStats> list = new ArrayList<PlayerStats>();
 		
-		for(SqlRow row : MinigamesPlugin.getInstance().getDatabase().createSqlQuery(sql).findList())
+		try(ResultSet row = MinigamesPlugin.getInstance().getDb().executeQuery(sql))
 		{
-			PlayerStats obj = new PlayerStats();
-			obj.setName(row.getString("player_name"));
-			obj.setGoldenRings(row.getInteger("golden_rings"));
-			
-			list.add(obj);
+			while(row.next())
+			{
+				PlayerStats obj = new PlayerStats();
+				obj.setName(row.getString("player_name"));
+				obj.setGoldenRings(row.getInt("golden_rings"));
+				
+				list.add(obj);
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 		
 		return list;
