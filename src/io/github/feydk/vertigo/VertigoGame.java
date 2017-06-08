@@ -29,6 +29,7 @@ import org.bukkit.Material;
 import org.bukkit.Note;
 import org.bukkit.SkullType;
 import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -373,7 +374,7 @@ public class VertigoGame extends Game implements Listener
 					if(!gp.joinedAsSpectator())
 					{
 						scoreboard.setPlayerScore(player, 0);
-						//player.playSound(player.getEyeLocation(), Sound.WITHER_SPAWN, 1f, 1f);
+						//player.playSound(player.getEyeLocation(), Sound.WITHER_SPAWN, SoundCategory.MASTER, 1f, 1f);
 						count++;
 					}
 				}
@@ -409,7 +410,7 @@ public class VertigoGame extends Game implements Listener
 				{
 					getGamePlayer(player).setSpectator();
 					
-					player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERDRAGON_DEATH, 1f, 1f);
+					player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERDRAGON_DEATH, SoundCategory.MASTER, 1f, 1f);
 				}
 												
 				scoreboard.setTitle("Game over");
@@ -523,7 +524,7 @@ public class VertigoGame extends Game implements Listener
 				if(seconds == 0)
 				{
 					Title.show(player, "", "");
-					player.playSound(player.getEyeLocation(), Sound.ENTITY_FIREWORK_LARGE_BLAST, 1f, 1f);
+					player.playSound(player.getEyeLocation(), Sound.ENTITY_FIREWORK_LARGE_BLAST, SoundCategory.MASTER, 1f, 1f);
 				}
 				else if(seconds == countdownToStartDuration)
 				{
@@ -604,7 +605,7 @@ public class VertigoGame extends Game implements Listener
 					if(secsLeft <= 0)
 					{
 						Title.show(player, "", "");
-						//player.playSound(player.getEyeLocation(), Sound.FIREWORK_LARGE_BLAST, 1f, 1f);
+						//player.playSound(player.getEyeLocation(), Sound.FIREWORK_LARGE_BLAST, SoundCategory.MASTER, 1f, 1f);
 					}
 					else
 					{
@@ -1175,7 +1176,7 @@ public class VertigoGame extends Game implements Listener
 
 		Title.show(player, "", "§6" + strings[r.nextInt(strings.length)] + " " + strings2[r.nextInt(strings2.length)]);
 
-		player.playSound(player.getLocation(), Sound.ENTITY_GHAST_SCREAM, 1, 1);
+		player.playSound(player.getLocation(), Sound.ENTITY_GHAST_SCREAM, SoundCategory.MASTER, 1, 1);
 
 		new BukkitRunnable()
 		{
@@ -1259,7 +1260,7 @@ public class VertigoGame extends Game implements Listener
 		for(Player p : getOnlinePlayers())
 		{
 			Msg.send(p, chatPrefix + "§cSplat! §3" + player.getName() + " §c" + string);
-			p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BIG_FALL, 1, 1);
+			p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BIG_FALL, SoundCategory.MASTER, 1, 1);
 		}
 
 		//summonRocket(landingLocation.subtract(0, 1, 0), Color.RED);
@@ -1338,9 +1339,9 @@ public class VertigoGame extends Game implements Listener
 			Msg.send(p, msg);
 	
 			if(currentJumperPassedRing)
-				p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
+				p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 1, 1);
 			else
-				p.playSound(p.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1, 1);
+				p.playSound(p.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, SoundCategory.MASTER, 1, 1);
 		}
 
 		Title.show(player, "", "§9Splash! §6+ " + score + " point" + (score > 1 ? "s" : ""));
