@@ -49,3 +49,6 @@ build.xml
 out/io/github/feydk/vertigo/GameMap.class
 *.class
 .project
+
+# Maven
+/target
