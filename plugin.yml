@@ -7,5 +7,5 @@ depend: [ SQL, Connect ]
 softdepend: []
 commands:
   colorfall:
-    aliases: [ready, item, tp, highscore, hi, stats, quit, leave]
+    aliases: [ready, item, tp, highscore, hi, stats, quit]
 permissions: {}

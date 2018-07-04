@@ -197,12 +197,12 @@ public class GameMap
             spawnLocationsRandomized = true;
             Collections.shuffle(spawnLocations, random);
         }
-        
+
         if(spawnLocationIter >= spawnLocations.size())
         	spawnLocationIter = 0;
-        
+
         int i = spawnLocationIter++;
-        
+
         return spawnLocations.get(i);
     }
 	
@@ -220,7 +220,7 @@ public class GameMap
             {
                 int x = cx + dx;
                 int z = cz + dz;
-                
+
                 // Find signs to register the blocks used in the map.
                 findChunkSigns(x, z);
             }
@@ -325,7 +325,7 @@ public class GameMap
         }
     }
 	
-	// Searches a chunk for map configuration signs. 
+	// Searches a chunk for map configuration signs.
     private void findChunkSigns(int x, int z)
     {
     	Point2D cc = new Point2D(x, z);
@@ -334,11 +334,11 @@ public class GameMap
     		return;
     	
         processedChunks.add(cc);
-        
+
         // Process the chunk.
         Chunk chunk = world.getChunkAt(x, z);
         chunk.load();
-        
+
         for(BlockState state : chunk.getTileEntities())
         {
             if(state instanceof Chest)
@@ -363,9 +363,9 @@ public class GameMap
             	org.bukkit.material.Sign signMaterial = (org.bukkit.material.Sign)state.getData();
             	Sign signBlock = (Sign)state;
                 Block attachedBlock = state.getBlock().getRelative(signMaterial.getAttachedFace());
-                
+
                 String firstLine = signBlock.getLine(0).toLowerCase();
-                
+
                 if(firstLine != null && firstLine.startsWith("[") && firstLine.endsWith("]"))
                 {
                 	if(firstLine.equals("[spawn]"))
@@ -425,7 +425,7 @@ public class GameMap
                     	for(int i = 1; i < 4; ++i)
                     	{
                     		String credit = signBlock.getLine(i);
-                            
+
                     		if(credit != null && !credit.isEmpty())
                     			credits.add(credit);
                         }
