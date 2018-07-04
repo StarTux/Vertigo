@@ -42,6 +42,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -260,6 +261,12 @@ public final class VertigoGame extends JavaPlugin implements Listener
                 return;
             }
 
+        if(getServer().getOnlinePlayers().isEmpty() && state == GameState.END)
+            {
+                getServer().shutdown();
+                return;
+            }
+
         // Check if everyone logged off during the game state.
         if(state != GameState.INIT && state != GameState.WAIT_FOR_PLAYERS)
             {
@@ -267,8 +274,8 @@ public final class VertigoGame extends JavaPlugin implements Listener
                     {
                         final long emptyTicks = this.emptyTicks++;
 
-                        // If no one was online for 60 seconds, shut it down.
-                        if(emptyTicks >= 20 * 60)
+                        // If no one was online for 20 seconds, shut it down.
+                        if(emptyTicks >= 20 * 20)
                             {
                                 getServer().shutdown();
                                 return;
@@ -837,17 +844,26 @@ public final class VertigoGame extends JavaPlugin implements Listener
         scoreboard.addPlayer(player);
     }
 
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event)
+    {
+        if (state == GameState.END) {
+            onPlayerLeave(event.getPlayer());
+        }
+    }
+
     public void onPlayerLeave(Player player)
     {
         GamePlayer gp = getGamePlayer(player);
 
-        if(gp.joinedAsSpectator())
-            return;
+        if(!gp.joinedAsSpectator())
+            {
+                gp.setEndTime(new Date());
 
-        gp.setEndTime(new Date());
-
-        if(!debug)
-            gp.recordStats(moreThanOnePlayed, mapID);
+                if(!debug)
+                    gp.recordStats(moreThanOnePlayed, mapID);
+            }
+        gamePlayers.remove(gp.getUuid());
     }
 
     public boolean onCommand(CommandSender sender, Command bcommand, String command, String[] args)
@@ -1389,6 +1405,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
     @EventHandler
     public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
+        if (getGamePlayer(event.getPlayer().getUniqueId()).hasJoinedBefore) return;
         event.setSpawnLocation(getSpawnLocation(event.getPlayer()));
     }
 
