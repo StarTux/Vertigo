@@ -1,0 +1,11 @@
+name: Vertigo
+description: Vertigo Minigame
+authors: [ feydk, StarTux ]
+version: 0.1-SNAPSHOT
+main: io.github.feydk.vertigo.VertigoGame
+depend: [ SQL, Connect ]
+softdepend: []
+commands:
+  colorfall:
+    aliases: [ready, item, tp, highscore, hi, stats, quit, leave]
+permissions: {}
