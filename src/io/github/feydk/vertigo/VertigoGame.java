@@ -154,7 +154,11 @@ public final class VertigoGame extends JavaPlugin implements Listener
         WorldCreator wc = WorldCreator.name("GameWorld");
         wc.generator("VoidGenerator");
         wc.type(WorldType.FLAT);
-        wc.environment(World.Environment.valueOf(worldConfig.getString("world.Environment")));
+        try {
+            wc.environment(World.Environment.valueOf(worldConfig.getString("world.Environment")));
+        } catch (Throwable t) {
+            wc.environment(World.Environment.NORMAL);
+        }
         world = wc.createWorld();
 
         map = new GameMap(getConfig().getInt("general.chunkRadius"), this);
@@ -245,7 +249,12 @@ public final class VertigoGame extends JavaPlugin implements Listener
         //highscore.init();
         for (String ids: gameConfig.getStringList("members")) {
             UUID playerId = UUID.fromString(ids);
-            gamePlayers.put(playerId, new GamePlayer(this, playerId));
+            getGamePlayer(playerId);
+        }
+        for (String ids: gameConfig.getStringList("spectators")) {
+            UUID playerId = UUID.fromString(ids);
+            getGamePlayer(playerId).setSpectator();
+            getGamePlayer(playerId).setJoinedAsSpectator(true);
         }
     }
 
@@ -359,6 +368,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
                 scoreboard.setTitle(ChatColor.GREEN + "Waiting");
                 break;
             case COUNTDOWN_TO_START:
+                daemonGameConfig("players_may_join", false);
                 scoreboard.setTitle(ChatColor.GREEN + "Get ready..");
 
                 // Once the countdown starts, remove everyone who disconnected.
@@ -416,6 +426,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
                 break;
             case END:
+                daemonGameEnd();
                 for(Player player : getServer().getOnlinePlayers())
                     {
                         getGamePlayer(player).setSpectator();
@@ -1418,13 +1429,8 @@ public final class VertigoGame extends JavaPlugin implements Listener
             case COUNTDOWN_TO_START:
                 return getGamePlayer(player).getSpawnLocation();
             default:
-                if(getGamePlayer(player).isSpectator())
-                    {
-                        return world.getSpawnLocation();
-                    }
+                return world.getSpawnLocation();
             }
-
-        return null;
     }
 
     String getStatsJson(int type)
@@ -1717,7 +1723,9 @@ public final class VertigoGame extends JavaPlugin implements Listener
                 if (!gameId.equals(gameUuid)) return;
                 final UUID player = UUID.fromString((String)payload.get("player"));
                 if (spectate) {
+                    if (gamePlayers.containsKey(player)) return;
                     getGamePlayer(player).setSpectator();
+                    getGamePlayer(player).setJoinedAsSpectator(true);
                     daemonAddSpectator(player);
                 } else {
                     if (state != GameState.WAIT_FOR_PLAYERS) return;
@@ -1750,7 +1758,6 @@ public final class VertigoGame extends JavaPlugin implements Listener
     }
 
     void daemonAddPlayer(UUID uuid) {
-        gamePlayers.remove(uuid);
         Map<String, Object> map = new HashMap<>();
         map.put("action", "game_add_player");
         map.put("player", uuid.toString());
@@ -1759,11 +1766,26 @@ public final class VertigoGame extends JavaPlugin implements Listener
     }
 
     void daemonAddSpectator(UUID uuid) {
-        gamePlayers.remove(uuid);
         Map<String, Object> map = new HashMap<>();
         map.put("action", "game_add_spectator");
         map.put("player", uuid.toString());
         map.put("game", gameUuid.toString());
+        Connect.getInstance().send("daemon", "minigames", map);
+    }
+
+    void daemonGameEnd() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("action", "game_end");
+        map.put("game", gameUuid.toString());
+        Connect.getInstance().send("daemon", "minigames", map);
+    }
+
+    void daemonGameConfig(String key, Object value) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("action", "game_config");
+        map.put("game", gameUuid.toString());
+        map.put("key", key);
+        map.put("value", value);
         Connect.getInstance().send("daemon", "minigames", map);
     }
 
