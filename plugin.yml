@@ -1,7 +1,9 @@
 name: Vertigo
 description: Vertigo Minigame
 authors: [ feydk, StarTux ]
-version: 0.1-SNAPSHOT
+version: 0.1
+api-version: 1.13
+website: https://cavetale.com
 main: io.github.feydk.vertigo.VertigoGame
 depend: [ SQL, Connect ]
 softdepend: []

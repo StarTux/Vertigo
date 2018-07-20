@@ -15,13 +15,12 @@ import java.util.Random;
 import java.util.UUID;
 import org.bukkit.ChatColor;
 import org.bukkit.Difficulty;
-import org.bukkit.Effect;
 import org.bukkit.GameMode;
 import org.bukkit.Instrument;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Note;
-import org.bukkit.SkullType;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
@@ -30,6 +29,7 @@ import org.bukkit.WorldType;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Skull;
+import org.bukkit.block.data.Rotatable;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -431,7 +431,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
                     {
                         getGamePlayer(player).setSpectator();
 
-                        player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERDRAGON_DEATH, SoundCategory.MASTER, 1f, 1f);
+                        player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, SoundCategory.MASTER, 1f, 1f);
                     }
 
                 scoreboard.setTitle("Game over");
@@ -547,7 +547,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
                         if(seconds == 0)
                             {
                                 Msg.sendTitle(player, "", "");
-                                player.playSound(player.getEyeLocation(), Sound.ENTITY_FIREWORK_LARGE_BLAST, SoundCategory.MASTER, 1f, 1f);
+                                player.playSound(player.getEyeLocation(), Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST, SoundCategory.MASTER, 1f, 1f);
                             }
                         else if(seconds == countdownToStartDuration)
                             {
@@ -1009,7 +1009,8 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
                 if((t.getBlockX() == rx && t.getBlockZ() == rz || f.getBlockX() == rx && f.getBlockZ() == rz) && (t.getBlockY() <= ry && f.getBlockY() >= ry))
                     {
-                        world.spigot().playEffect(currentRingCenter, Effect.COLOURED_DUST, 0, 0, 2f, 2f, 2f, .2f, 2000, 50);
+                        // world.spigot().playEffect(currentRingCenter, Effect.COLOURED_DUST, 0, 0, 2f, 2f, 2f, .2f, 2000, 50);
+                        world.spawnParticle(Particle.REDSTONE, currentRingCenter, 50, 2f, 2f, 2f, .2f, new Particle.DustOptions(org.bukkit.Color.YELLOW, 10.0f));
                         currentJumperPassedRing = true;
                     }
             }
@@ -1017,7 +1018,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
         Location l = event.getTo();
 
         // Check if player landed in water.
-        if(l.getBlock().getType() == Material.WATER || l.getBlock().getType() == Material.STATIONARY_WATER)
+        if(l.getBlock().getType() == Material.WATER)
             {
                 onSplash(player, l);
             }
@@ -1117,7 +1118,6 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
                 // new BukkitRunnable()
                 // {
-                //      @SuppressWarnings("deprecation")
                 //              @Override public void run()
                 //      {
                 //              for(final Player player : getServer().getOnlinePlayers())
@@ -1237,7 +1237,8 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
         currentJumper = null;
 
-        world.spigot().playEffect(landingLocation, Effect.EXPLOSION, 0, 0, .5f, .5f, .5f, .5f, 1000, 50);
+        // world.spigot().playEffect(landingLocation, Effect.EXPLOSION, 0, 0, .5f, .5f, .5f, .5f, 1000, 50);
+        world.spawnParticle(Particle.EXPLOSION_LARGE, landingLocation, 50, .5f, .5f, .5f, .5f);
 
         if(player.isOnline())
             {
@@ -1265,7 +1266,6 @@ public final class VertigoGame extends JavaPlugin implements Listener
         callNextJumper();
     }
 
-    @SuppressWarnings("deprecation")
     private void onSplash(Player player, Location landingLocation)
     {
         Msg.sendActionBar(player, "");
@@ -1294,7 +1294,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
         for(Block block : adjacent)
             {
-                if(map.isBlock(block.getType(), block.getData()))
+                if(map.isBlock(block.getType()))
                     {
                         adjacentBlocks++;
                         score++;
@@ -1345,46 +1345,45 @@ public final class VertigoGame extends JavaPlugin implements Listener
         gp.addPoint(score);
 
         // Animation
-        world.spigot().playEffect(landingLocation, Effect.SPLASH, 0, 0, .5f, 4f, .5f, .1f, 5000, 50);
+        // world.spigot().playEffect(landingLocation, Effect.SPLASH, 0, 0, .5f, 4f, .5f, .1f, 5000, 50);
+        world.spawnParticle(Particle.WATER_SPLASH, landingLocation, 50, .5f, 4f, .5f, .1f);
 
         ItemStack r = map.getRandomBlock();
 
-        landingLocation.getBlock().setTypeIdAndData(r.getTypeId(), r.getData().getData(), true);
+        landingLocation.getBlock().setType(r.getType(), true);
 
         Block head = landingLocation.getBlock().getRelative(BlockFace.UP);
-        head.setType(Material.SKULL);
-        head.setData((byte)1);
-        Skull s = (Skull)head.getState();
-        s.setSkullType(SkullType.PLAYER);
-        s.setOwner(player.getName());
+        Rotatable skullData = (Rotatable)Material.PLAYER_HEAD.createBlockData();
 
         int orientation = new Random(System.currentTimeMillis()).nextInt(12);
-
         if(orientation == 0)
-            s.setRotation(BlockFace.EAST);
+            skullData.setRotation(BlockFace.EAST);
         else if(orientation == 1)
-            s.setRotation(BlockFace.WEST);
+            skullData.setRotation(BlockFace.WEST);
         else if(orientation == 2)
-            s.setRotation(BlockFace.NORTH);
+            skullData.setRotation(BlockFace.NORTH);
         else if(orientation == 3)
-            s.setRotation(BlockFace.SOUTH);
+            skullData.setRotation(BlockFace.SOUTH);
         else if(orientation == 4)
-            s.setRotation(BlockFace.NORTH_EAST);
+            skullData.setRotation(BlockFace.NORTH_EAST);
         else if(orientation == 5)
-            s.setRotation(BlockFace.NORTH_NORTH_EAST);
+            skullData.setRotation(BlockFace.NORTH_NORTH_EAST);
         else if(orientation == 6)
-            s.setRotation(BlockFace.NORTH_NORTH_WEST);
+            skullData.setRotation(BlockFace.NORTH_NORTH_WEST);
         else if(orientation == 7)
-            s.setRotation(BlockFace.NORTH_WEST);
+            skullData.setRotation(BlockFace.NORTH_WEST);
         else if(orientation == 8)
-            s.setRotation(BlockFace.SOUTH_EAST);
+            skullData.setRotation(BlockFace.SOUTH_EAST);
         else if(orientation == 9)
-            s.setRotation(BlockFace.SOUTH_SOUTH_EAST);
+            skullData.setRotation(BlockFace.SOUTH_SOUTH_EAST);
         else if(orientation == 10)
-            s.setRotation(BlockFace.SOUTH_SOUTH_WEST);
+            skullData.setRotation(BlockFace.SOUTH_SOUTH_WEST);
         else if(orientation == 11)
-            s.setRotation(BlockFace.SOUTH_WEST);
+            skullData.setRotation(BlockFace.SOUTH_WEST);
 
+        head.setBlockData(skullData);
+        Skull s = (Skull)head.getState();
+        s.setOwningPlayer(player);
         s.update();
 
         map.addBlock();
@@ -1694,7 +1693,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
     // the daemon when the player enters the appropriate remote
     // command.  Tell the daemon that that the request has been
     // accepted, then wait for the daemon to send the player here.
-    @EventHandler
+    @EventHandler @SuppressWarnings("unchecked")
     public void onConnectMessage(ConnectMessageEvent event) {
         final Message message = event.getMessage();
         if (message.getFrom().equals("daemon") && message.getChannel().equals("minigames")) {

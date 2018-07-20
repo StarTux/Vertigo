@@ -117,6 +117,7 @@ final class Msg {
         }
     }
 
+    @SuppressWarnings("deprecation")
     static void sendTitle(Player player, String title, String subtitle) {
         player.sendTitle(ChatColor.translateAlternateColorCodes('&', title), ChatColor.translateAlternateColorCodes('&', subtitle));
     }
