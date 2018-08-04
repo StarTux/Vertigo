@@ -1383,7 +1383,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
         head.setBlockData(skullData);
         Skull s = (Skull)head.getState();
-        s.setOwningPlayer(player);
+        s.setOwner(player.getName());
         s.update();
 
         map.addBlock();
