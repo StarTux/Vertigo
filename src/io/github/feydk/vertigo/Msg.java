@@ -3,11 +3,12 @@ package io.github.feydk.vertigo;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.gson.Gson;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.json.simple.JSONValue;
 
 final class Msg
 {
@@ -35,7 +36,7 @@ final class Msg
 
         try
         {
-            js = JSONValue.toJSONString(json);
+            js = new Gson().toJson(json);
         }
         catch (Exception e)
         {

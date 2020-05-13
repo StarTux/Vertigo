@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import javafx.geometry.Point2D;
 
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -20,8 +19,16 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
+import lombok.Value;
+
 public class GameMap
 {
+    @Value
+    static final class Point2D {
+        final int x;
+        final int z;
+    }
+
     private Set<Point2D> processedChunks = new HashSet<>();
     private List<Location> spawnLocations = new ArrayList<>();
     //private List<String> credits = new ArrayList<>();
