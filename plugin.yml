@@ -1,13 +1,30 @@
 name: Vertigo
 description: Vertigo Minigame
 authors: [ feydk, StarTux ]
-version: 0.1
-api-version: 1.13
+version: 1.0
+api-version: 1.15
 website: https://cavetale.com
-main: io.github.feydk.vertigo.VertigoGame
-depend: [ SQL, Connect ]
+main: io.github.feydk.vertigo.VertigoLoader
+depend: []
 softdepend: []
 commands:
-  colorfall:
-    aliases: [ready, item, tp, highscore, hi, stats, quit]
+  vertigo:
+    description: Join a game of Vertigo
+    permission: vertigo.vertigo
+    usage: /vertigo
+  vertigoadmin:
+    description: Vertigo admin interface
+    permission: vertigo.admin
+    usage: |-
+      /vertigo
+      /vertigoadmin load <world name> - Load a world
+      /vertigoadmin setup - Prepare the game world
+      /vertigoadmin ready - Set game state to ready
+      /vertigoadmin announce - Announce a ready game
+      /vertigoadmin start - Begin the game
+      /vertigoadmin stop - End the game
+      /vertigoadmin spectate - Spectate the game
+      /vertigoadmin discard - Discards game and world
+      /vertigoadmin reset - Reset the game
+      /vertigoadmin kickplayers - Kick all remaining players
 permissions: {}

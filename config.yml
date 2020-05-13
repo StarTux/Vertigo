@@ -1,18 +1,13 @@
 general:
-  # Default map path to game world, if one isn't sent from the framework.
-  defaultMapPath: '/mc/minigames/edit/Splash'
   # How many chunks in each direction (starting from the center of the map) that should be scanned for signs and map blocks.
-  # In other words, should be high enough to contain the entire map.
+  # In other words, should be a high enough value to contain the entire map.
   chunkRadius: 3
-  # How many seconds a player is allowed to be disconnected before being kicked from the game.
-  disconnectLimit: 10
-  # Duration of WAIT_FOR_PLAYERS stage (where players can join the game).
-  waitForPlayersDuration: 60
   # Duration of COUNTDOWN_TO_START stage.
-  countdownToStartDuration: 5
-  # Duration of the STARTED stage, which is the stage with the actual game play. If set to 0, there is no limit (recommended).
-  startedDuration: 0
-  # Duration of the END stage.
+  countdownToStartDuration: 10
+  # Duration of the END stage. Ie how long the winner name should be flashed.
   endDuration: 30
   # Chance of a ring appearing in each round.
   ringChance: 50
+  # When games are discarded, perform this command for remaining players in the world.
+  discardCommand: 'spawn' 
+maps: [ BoneCrusher, Bridge, coffee, DesertJump, Doghouse, DuckVertigo, Forgotten, GottaCatchThemAll, LoveHurts, Memories, njvertigo, Oceanical, rekktigo, ScaryForest_the_end, Slime, Splash, TempleFall, Terrace, TheLost, towels, Verticoal, VertigoIsland, VertigoRuins ]

@@ -1,991 +1,594 @@
 package io.github.feydk.vertigo;
 
-import com.winthier.connect.Connect;
-import com.winthier.connect.Message;
-import com.winthier.connect.event.ConnectMessageEvent;
-import com.winthier.sql.SQLDatabase;
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
-import org.bukkit.ChatColor;
-import org.bukkit.Difficulty;
-import org.bukkit.GameMode;
-import org.bukkit.Instrument;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Note;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
-import org.bukkit.WorldType;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.Rotatable;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.json.simple.JSONValue;
-import org.spigotmc.event.player.PlayerSpawnLocationEvent;
+import org.bukkit.util.Vector;
 
-public final class VertigoGame extends JavaPlugin implements Listener
+import java.util.*;
+
+import static io.github.feydk.vertigo.VertigoLoader.chatPrefix;
+
+class VertigoGame
 {
+    VertigoLoader loader;
     World world;
-    //static String nmsver;
-
-    // Stuff for keeping track of the game loop and ticks.
-    GameState state;
-    BukkitRunnable task;
-    long ticks;
-    long emptyTicks;
-    long stateTicks;
+    GameMap map;
+    GameState state = GameState.NONE;
 
     private GameScoreboard scoreboard;
-    private GameMap map;
+    private BossBar gamebar;
+    private List<VertigoPlayer> players = new ArrayList<>();
 
-    static String chatPrefix = " §7[§bVertigo§7] ";
-
-    // Config stuff.
-    private int disconnectLimit;
-    private int minPlayersToStart;
-    private int waitForPlayersDuration;
+    // Game loop stuff.
+    private boolean shutdown;
+    private long ticks;
+    private long stateTicks;
     private int countdownToStartDuration;
     private int endDuration;
-    private double ringChance;
 
-    // Level config, sent from the framework.
-    private String mapID = "Classic";
-    boolean debug = false;
-
-    // Debug stuff.
-    List<String> debugStrings = new ArrayList<String>();
-    boolean denyStart = false;
-
-    private boolean didSomeoneJoin;
+    // Stuff for keeping track of jumpers.
+    private List<VertigoPlayer> jumpers = new ArrayList<>();
+    private int currentJumperIndex = 0;
+    private long jumperTicks = 0;
+    private boolean currentJumperHasJumped;
+    VertigoPlayer currentJumper;
+    private boolean currentJumperPassedRing;
     private boolean moreThanOnePlayed;
     private String winnerName;
 
-    // Stuff for keeping track of jumpers.
-    private List<Player> roundJumpers = new ArrayList<Player>();
-    private int currentJumperIndex = 0;
-    private long jumperTicks = 0;
-    private boolean currentJumperHasJumped = false;
-    private Player currentJumper;
-    private boolean currentJumperPassedRing = false;
-
     // Stuff for keeping track of rounds.
-    private int currentRound = 1;
-    private int roundCountdownTicks = -1;
-    private Location currentRingCenter = null;
-    private List<Block> currentRing = new ArrayList<Block>();
+    //private int roundNumber = 0;
+    //private int roundCountdownTicks = -1;
 
-    // Highscore stuff.
-    UUID gameUuid;
-    String joinRandomStat;
-
-    SQLDatabase db;
-    Map<UUID, GamePlayer> gamePlayers = new HashMap<>();
-
-    public VertigoGame()
+    enum GameState
     {
-        state = GameState.INIT;
+        NONE,                   // Nothing has happened yet
+        INIT,                   // Game has been set up, but not ready
+        READY,                  // Game is ready to accept players
+        COUNTDOWN_TO_START,     // Countdown to first round has started
+        RUNNING,                // Game/a round is running
+        ENDED                 // Game is over
     }
 
-    public static enum GameState
+    public VertigoGame(VertigoLoader loader)
     {
-        INIT,
-        WAIT_FOR_PLAYERS,
-        COUNTDOWN_TO_START,
-        STARTED,
-        END
+        this.loader = loader;
+
+        gamebar = loader.getServer().createBossBar(ChatColor.BOLD + "Vertigo", BarColor.BLUE, BarStyle.SOLID);
+        gamebar.setProgress(0);
+        gamebar.setVisible(false);
+
+        countdownToStartDuration = loader.getConfig().getInt("general.countdownToStartDuration");
+        endDuration = loader.getConfig().getInt("general.endDuration");
     }
 
-    public GameScoreboard getScoreboard()
+    void setWorld(World world)
     {
-        return scoreboard;
+        this.world = world;
     }
 
-    public GameMap getMap()
+    boolean setup(Player admin)
     {
-        return map;
-    }
-
-    @Override @SuppressWarnings("unchecked")
-    public void onEnable()
-    {
-        db = new SQLDatabase(this);
-
-        // Load game and world configs, then the world.  Copy and paste worthy.
-        ConfigurationSection worldConfig;
-        ConfigurationSection gameConfig;
-        try {
-            worldConfig = YamlConfiguration.loadConfiguration(new FileReader("GameWorld/config.yml"));
-            gameConfig = new YamlConfiguration().createSection("tmp", (Map<String, Object>)JSONValue.parse(new FileReader("game_config.json")));
-        } catch (Throwable t) {
-            t.printStackTrace();
-            getServer().shutdown();
-            return;
+        if(world == null)
+        {
+            admin.sendMessage(ChatColor.RED + "You must load a world first.");
+            return false;
         }
-        mapID = gameConfig.getString("map_id", mapID);
-        debug = gameConfig.getBoolean("debug", debug);
-        gameUuid = UUID.fromString(gameConfig.getString("unique_id"));
 
-        WorldCreator wc = WorldCreator.name("GameWorld");
-        wc.generator("VoidGenerator");
-        wc.type(WorldType.FLAT);
-        try {
-            wc.environment(World.Environment.valueOf(worldConfig.getString("world.Environment")));
-        } catch (Throwable t) {
-            wc.environment(World.Environment.NORMAL);
-        }
-        world = wc.createWorld();
-
-        map = new GameMap(getConfig().getInt("general.chunkRadius"), this);
-
-        disconnectLimit = getConfig().getInt("general.disconnectLimit");
-        waitForPlayersDuration = getConfig().getInt("general.waitForPlayersDuration");
-        countdownToStartDuration = getConfig().getInt("general.countdownToStartDuration");
-        endDuration = getConfig().getInt("general.endDuration");
-
-        ringChance = getConfig().getDouble("general.ringChance");
-
-        minPlayersToStart = 1;
-
-        System.out.println("Setting up Vertigo player stats");
-
-        final String sql =
-            "CREATE TABLE IF NOT EXISTS `vertigo_playerstats` (" +
-            " `id` INT(11) NOT NULL AUTO_INCREMENT," +
-            " `game_uuid` VARCHAR(40) NOT NULL," +
-            " `player_uuid` VARCHAR(40) NOT NULL," +
-            " `player_name` VARCHAR(16) NOT NULL," +
-            " `start_time` DATETIME NOT NULL," +
-            " `end_time` DATETIME NOT NULL," +
-            " `rounds_played` INT(11) NOT NULL," +
-            " `splats` INT(11) NOT NULL," +
-            " `splashes` INT(11) NOT NULL," +
-            " `chickens` INT(11) NOT NULL," +
-            " `superior_win` INT(11) NOT NULL," +
-            " `points` INT(11) NOT NULL," +
-            " `one_pointers` INT(11) NOT NULL," +
-            " `two_pointers` INT(11) NOT NULL," +
-            " `three_pointers` INT(11) NOT NULL," +
-            " `four_pointers` INT(11) NOT NULL," +
-            " `five_pointers` INT(11) NOT NULL," +
-            " `golden_rings` INT(11) NOT NULL," +
-            " `winner` INT(11) NOT NULL," +
-            " `sp_game` BOOLEAN NOT NULL," +
-            " `map_id` VARCHAR(40) NULL, " +
-            " PRIMARY KEY (`id`)" +
-            ")";
-
-        try
-            {
-                db.executeUpdate(sql);
-            }
-        catch(Exception e)
-            {
-                e.printStackTrace();
-            }
-
-        System.out.println("Done setting up Vertigo player stats");
-
-        //nmsver = getServer().getClass().getPackage().getName();
-        //nmsver = nmsver.substring(nmsver.lastIndexOf(".") + 1);
-
-        world.setDifficulty(Difficulty.HARD);
-        world.setPVP(false);
-        world.setGameRuleValue("doTileDrops", "false");
-        world.setGameRuleValue("doMobSpawning", "false");
-        world.setWeatherDuration(Integer.MAX_VALUE);
-        world.setStorm(false);
-
-        map.process(getSpawnLocation().getChunk());
-
-        if(map.getStartingTime() == -1)
-            world.setTime(1000L);
-        else
-            world.setTime(map.getStartingTime());
-
-        if(map.getLockTime())
-            world.setGameRuleValue("doDaylightCycle", "false");
-        else
-            world.setGameRuleValue("doDaylightCycle", "true");
-
-        task = new BukkitRunnable()
-            {
-                @Override public void run()
-                {
-                    onTick();
-                }
-            };
-
-        task.runTaskTimer(this, 1, 1);
-        getServer().getPluginManager().registerEvents(this, this);
+        shutdown = false;
+        players.clear();
+        updateGamebar(0);
 
         scoreboard = new GameScoreboard(this);
 
-        //highscore.init();
-        for (String ids: gameConfig.getStringList("members")) {
-            UUID playerId = UUID.fromString(ids);
-            getGamePlayer(playerId);
+        world.setDifficulty(Difficulty.PEACEFUL);
+        world.setPVP(false);
+        world.setGameRule(GameRule.DO_TILE_DROPS, false);
+        world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
+        world.setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, false);
+        world.setGameRule(GameRule.DISABLE_RAIDS, true);
+        world.setGameRule(GameRule.DO_INSOMNIA, false);
+        world.setGameRule(GameRule.DO_PATROL_SPAWNING, false);
+        world.setGameRule(GameRule.DO_TRADER_SPAWNING, false);
+        world.setGameRule(GameRule.FIRE_DAMAGE, false);
+        world.setGameRule(GameRule.KEEP_INVENTORY, true);
+        world.setWeatherDuration(Integer.MAX_VALUE);
+        world.setStorm(false);
+
+        map = new GameMap(loader.getConfig().getInt("general.chunkRadius"), this);
+
+        boolean ready = map.process(getSpawnLocation().getChunk());
+
+        if(ready)
+        {
+            if(map.getStartingTime() == -1)
+                world.setTime(1000L);
+            else
+                world.setTime(map.getStartingTime());
+
+            if(map.getLockTime())
+                world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
+            else
+                world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, true);
+
+            state = GameState.INIT;
         }
-        for (String ids: gameConfig.getStringList("spectators")) {
-            UUID playerId = UUID.fromString(ids);
-            getGamePlayer(playerId).setSpectator();
-            getGamePlayer(playerId).setJoinedAsSpectator(true);
+        else
+        {
+            admin.sendMessage(ChatColor.RED + "The game could not be set up. Check console for hints.");
+        }
+
+        return ready;
+    }
+
+    void discard()
+    {
+        setWorld(null);
+        state = GameState.NONE;
+
+        for(VertigoPlayer vp : players)
+        {
+            leave(vp.getPlayer());
         }
     }
 
-    @SuppressWarnings("static-access")
+    void ready(Player admin)
+    {
+        if(state != GameState.INIT)
+        {
+            admin.sendMessage(ChatColor.RED + "No can do. Game hasn't been set up yet.");
+            return;
+        }
+
+        state = GameState.READY;
+        updateGamebar(0);
+
+        BukkitRunnable task = new BukkitRunnable()
+        {
+            @Override
+            public void run()
+            {
+                if(shutdown)
+                    this.cancel();
+
+                onTick();
+            }
+        };
+
+        task.runTaskTimer(loader, 1, 1);
+    }
+
+    void join(Player player, boolean spectator)
+    {
+        VertigoPlayer vp = findPlayer(player);
+
+        if(vp == null)
+        {
+            vp = new VertigoPlayer(this, player);
+            players.add(vp);
+
+            scoreboard.addPlayer(player);
+            gamebar.addPlayer(player);
+
+            if(vp.isPlaying)
+                scoreboard.setPlayerScore(player, 0);
+        }
+
+        vp.isPlaying = !spectator;
+        vp.wasPlaying = vp.isPlaying;
+        vp.getPlayer().setGameMode(GameMode.SPECTATOR);
+
+        player.removePotionEffect(PotionEffectType.LEVITATION);
+        player.removePotionEffect(PotionEffectType.SLOW_FALLING);
+
+        player.teleport(vp.getSpawnLocation());
+        player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
+    }
+
+    void leave(Player player)
+    {
+        if(player != null)
+        {
+            if(player.getGameMode() == GameMode.SPECTATOR || player.getGameMode() == GameMode.ADVENTURE)
+                player.setGameMode(GameMode.SURVIVAL);
+
+            gamebar.removePlayer(player);
+            scoreboard.removePlayer(player);
+            players.remove(player);
+        }
+    }
+
+    void start()
+    {
+        stateChange(state, GameState.COUNTDOWN_TO_START);
+        state = GameState.COUNTDOWN_TO_START;
+    }
+
+    void end()
+    {
+        /*if(this.players.size() > 0)
+        {
+            for(VertigoPlayer vp : players)
+            {
+                vp.setSpectator();
+            }
+        }*/
+
+        findWinner();
+        state = GameState.ENDED;
+        stateChange(GameState.RUNNING, state);
+    }
+
+    void reset()
+    {
+        state = GameState.READY;
+        scoreboard.reset();
+        //roundNumber = 0;
+        map.reset();
+
+        for(VertigoPlayer vp : players)
+        {
+            scoreboard.addPlayer(vp.getPlayer());
+
+            if(vp.isPlaying)
+                scoreboard.setPlayerScore(vp.getPlayer(), 0);
+
+            if(vp.wasPlaying)
+                vp.isPlaying = true;
+        }
+    }
+
+    void shutdown()
+    {
+        shutdown = true;
+        scoreboard.reset();
+    }
+
     private void onTick()
     {
         ticks++;
 
-        // All players left, shut it down.
-        if(gamePlayers.isEmpty())
-            {
-                getServer().shutdown();
-                return;
-            }
-
-        if(getServer().getOnlinePlayers().isEmpty() && state == GameState.END)
-            {
-                getServer().shutdown();
-                return;
-            }
-
-        // Check if everyone logged off during the game state.
-        if(state != GameState.INIT && state != GameState.WAIT_FOR_PLAYERS)
-            {
-                if(getServer().getOnlinePlayers().isEmpty())
-                    {
-                        final long emptyTicks = this.emptyTicks++;
-
-                        // If no one was online for 20 seconds, shut it down.
-                        if(emptyTicks >= 20 * 20)
-                            {
-                                getServer().shutdown();
-                                return;
-                            }
-                    }
-                else
-                    {
-                        emptyTicks = 0L;
-                    }
-            }
+        if(shutdown)
+            return;
 
         GameState newState = null;
 
         // Check for disconnects.
-        for(GamePlayer gp : gamePlayers.values())
+        removeDisconnectedPlayers();
+
+        if(state == GameState.RUNNING)
+        {
+            // Check if only one player is left.
+            int aliveCount = 0;
+
+            for(VertigoPlayer vp : players)
             {
-                Player player = getServer().getPlayer(gp.getUuid());
-                if(player == null && !gp.joinedAsSpectator())
-                    {
-                        // Kick players who disconnect too long.
-                        long discTicks = gp.getDisconnectedTicks();
-
-                        if(discTicks > disconnectLimit * 20)
-                            {
-                                scoreboard.updatePlayers();
-                                getLogger().info("Kicking " + gp.getName() + " because they were disconnected too long");
-                                daemonRemovePlayer(gp.getUuid());
-                            }
-
-                        gp.setDisconnectedTicks(discTicks + 1);
-                    }
+                if(vp.isPlaying)
+                    aliveCount++;
             }
 
-        if(state != GameState.INIT && state != GameState.WAIT_FOR_PLAYERS && state != GameState.END)
+            if(aliveCount == 0 || (aliveCount == 1 && moreThanOnePlayed) || map.getWaterLeft() <= 0)
             {
-                // Check if only one player is left.
-                int aliveCount = 0;
-
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        GamePlayer gp = getGamePlayer(player);
-
-                        if(!gp.joinedAsSpectator())
-                            {
-                                aliveCount++;
-                            }
-                    }
-
-                if(aliveCount == 0 || (aliveCount == 1 && moreThanOnePlayed))
-                    {
-                        newState = GameState.END;
-                    }
-                else
-                    {
-                        // At the end of each round, check if someone is 10 points ahead. If yes, end the game.
-                        if(currentJumperIndex >= roundJumpers.size() && scoreboard.isSomeoneLeadingBy(10, new ArrayList<>(getServer().getOnlinePlayers())))
-                            {
-                                newState = GameState.END;
-                            }
-                    }
+                newState = GameState.ENDED;
             }
+            else
+            {
+                // At the start of each "round", check if someone is 10 points ahead. If yes, end the game.
+                if(currentJumperIndex == 0 && scoreboard.isSomeoneLeadingBy(10, players))
+                {
+                    newState = GameState.ENDED;
+                }
+            }
+
+            if(newState == GameState.ENDED)
+                findWinner();
+        }
 
         if(newState == null)
+        {
             newState = tickState(state);
+        }
 
-        if(newState != null && state != newState)
-            {
-                onStateChange(state, newState);
-                state = newState;
-            }
-    }
-
-    @SuppressWarnings("incomplete-switch")
-    void onStateChange(GameState oldState, GameState newState)
-    {
-        stateTicks = 0;
-
-        switch(newState)
-            {
-            case WAIT_FOR_PLAYERS:
-                scoreboard.setTitle(ChatColor.GREEN + "Waiting");
-                break;
-            case COUNTDOWN_TO_START:
-                daemonGameConfig("players_may_join", false);
-                scoreboard.setTitle(ChatColor.GREEN + "Get ready..");
-
-                // Once the countdown starts, remove everyone who disconnected.
-                for(GamePlayer gp : gamePlayers.values())
-                    {
-                        Player player = getServer().getPlayer(gp.getUuid());
-                        if(player == null)
-                            {
-                                daemonRemovePlayer(gp.getUuid());
-                            }
-
-                        //GamePlayer gp = getGamePlayer(info.getUuid());
-                    }
-
-                break;
-            case STARTED:
-                int count = 0;
-
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        GamePlayer gp = getGamePlayer(player);
-
-                        if(!gp.joinedAsSpectator())
-                            {
-                                scoreboard.setPlayerScore(player, 0);
-                                //player.playSound(player.getEyeLocation(), Sound.WITHER_SPAWN, SoundCategory.MASTER, 1f, 1f);
-                                count++;
-                            }
-                    }
-
-                if(count > 1)
-                    {
-                        moreThanOnePlayed = true;
-                    }
-                else
-                    {
-                        // If it's a single player game not in debug mode, do something to make it easier to test?
-                        if(!debug)
-                            {
-                                for(Player player : getServer().getOnlinePlayers())
-                                    {
-                                        GamePlayer gp = getGamePlayer(player);
-
-                                        if(!gp.joinedAsSpectator())
-                                            {
-                                                // do it here
-                                            }
-                                    }
-                            }
-                    }
-
-                scoreboard.updatePlayers();
-
-                startRound();
-
-                break;
-            case END:
-                daemonGameEnd();
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        getGamePlayer(player).setSpectator();
-
-                        player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, SoundCategory.MASTER, 1f, 1f);
-                    }
-
-                scoreboard.setTitle("Game over");
-            }
+        if(newState != null && newState != state)
+        {
+            stateChange(state, newState);
+            state = newState;
+        }
     }
 
     private GameState tickState(GameState state)
     {
-        long ticks = this.stateTicks++;
+        stateTicks++;
 
-        switch(state)
-            {
-            case INIT:
-                return tickInit(ticks);
-            case WAIT_FOR_PLAYERS:
-                return tickWaitForPlayers(ticks);
-            case COUNTDOWN_TO_START:
-                return tickCountdownToStart(ticks);
-            case STARTED:
-                return tickStarted(ticks);
-            case END:
-                return tickEnd(ticks);
-            }
-
-        return null;
-    }
-
-    GameState tickInit(long ticks)
-    {
-        if(!didSomeoneJoin)
-            return null;
-
-        return GameState.WAIT_FOR_PLAYERS;
-    }
-
-    GameState tickWaitForPlayers(long ticks)
-    {
-        // Every 5 seconds, ask players to ready (or leave).
-        if(ticks % (20 * 5) == 0)
-            {
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        GamePlayer gp = getGamePlayer(player);
-
-                        if(!gp.isReady() && !gp.joinedAsSpectator())
-                            {
-                                List<Object> list = new ArrayList<>();
-                                list.add(Msg.format(" &fClick here when ready: "));
-                                list.add(button("&3[Ready]", "&3Mark yourself as ready", "/ready"));
-                                list.add(Msg.format("&f or "));
-                                list.add(button("&c[Quit]", "&cLeave this game", "/quit"));
-
-                                Msg.sendRaw(player, list);
-                            }
-                    }
-            }
-
-        long timeLeft = (waitForPlayersDuration * 20) - ticks;
-
-        // Every second, update the sidebar timer.
-        if(timeLeft % 20 == 0)
-            {
-                scoreboard.refreshTitle(timeLeft);
-
-                // Check if all players are ready.
-                boolean allReady = true;
-                int playerCount = 0;
-
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        playerCount++;
-                        GamePlayer gp = getGamePlayer(player);
-
-                        if(!gp.isReady() && !gp.joinedAsSpectator())
-                            {
-                                allReady = false;
-                                break;
-                            }
-                    }
-
-                // If they are, start the countdown (to start the game).
-                if(allReady && playerCount >= minPlayersToStart)
-                    return GameState.COUNTDOWN_TO_START;
-            }
-
-        // Time ran out, so we force everyone ready.
-        if(timeLeft <= 0)
-            {
-                if(getServer().getOnlinePlayers().size() >= minPlayersToStart) {
-                    return GameState.COUNTDOWN_TO_START;
-                } else {
-                    getServer().shutdown();
-                    return null;
-                }
-            }
+        if(state == GameState.READY)
+        {
+            return tickReady(stateTicks);
+        }
+        else if(state == GameState.COUNTDOWN_TO_START)
+        {
+            return tickCountdown(stateTicks);
+        }
+        else if(state == GameState.RUNNING)
+        {
+            return tickRunning(stateTicks);
+        }
+        else if(state == GameState.ENDED)
+        {
+            return tickEnded(stateTicks);
+        }
 
         return null;
     }
 
-    GameState tickCountdownToStart(long ticks)
+    // Game is ready to accept players.
+    private GameState tickReady(long ticks)
+    {
+        if(ticks % (20) == 0)
+        {
+            updateGamebar(0);
+        }
+
+        return null;
+    }
+
+    // Game is starting. Display a countdown to all players in the game world.
+    private GameState tickCountdown(long ticks)
     {
         long timeLeft = (countdownToStartDuration * 20) - ticks;
+        long seconds = timeLeft / 20;
+        double progress = (((double)countdownToStartDuration * 20) - timeLeft) / ((double)countdownToStartDuration * 20);
+        updateGamebar(progress);
 
-        // Every second..
         if(timeLeft % 20L == 0)
+        {
+            if(seconds == 0)
             {
-                long seconds = timeLeft / 20;
-
-                scoreboard.refreshTitle(timeLeft);
-
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        if(seconds == 0)
-                            {
-                                Msg.sendTitle(player, "", "");
-                                player.playSound(player.getEyeLocation(), Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST, SoundCategory.MASTER, 1f, 1f);
-                            }
-                        else if(seconds == countdownToStartDuration)
-                            {
-                                Msg.sendTitle(player, ChatColor.GREEN + "Get ready!", ChatColor.GREEN + "Game starts in " + countdownToStartDuration + " seconds");
-                                Msg.send(player, ChatColor.AQUA + " Game starts in %d seconds", seconds);
-                            }
-                        else
-                            {
-                                Msg.sendTitle(player, ChatColor.GREEN + "Get ready!", "" + ChatColor.GREEN + seconds);
-                                player.playNote(player.getEyeLocation(), Instrument.PIANO, new Note((int)seconds));
-                            }
-                    }
+                sendTitleToAllPlayers("", "");
+                playSoundForAllPlayers(Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST);
             }
+            else if(seconds <= 5)
+            {
+                sendTitleToAllPlayers(ChatColor.GREEN + "Get ready!", ChatColor.GREEN + "Game starts in " + seconds + " seconds");
+                playNoteForAllPlayers(Instrument.PIANO, new Note((int)seconds));
+            }
+        }
 
         if(timeLeft <= 0)
-            return GameState.STARTED;
+            return GameState.RUNNING;
 
         return null;
     }
 
-    GameState tickStarted(long ticks)
+    private GameState tickRunning(long ticks)
     {
-        if(denyStart)
-            {
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        Msg.send(player, ChatColor.RED + " Not starting game, due to missing configuration.");
-                    }
-
-                return GameState.END;
-            }
-
-        // Check if there are still water blocks left. If not, end the game.
-        if(map.getWaterLeft() <= 0)
-            {
-                return GameState.END;
-            }
+        double progress = (double)currentJumperIndex / jumpers.size();
+        updateGamebar(progress);
 
         if(currentJumper != null && !currentJumperHasJumped)
+        {
+            jumperTicks++;
+
+            // 10 seconds to jump.
+            long total = 30 * 20; // TODO: 10
+
+            if(jumperTicks >= total + 20) // 1 second of forgiveness
             {
-                jumperTicks++;
-                long total = 10 * 20;
+                playerTimedOut(currentJumper);
 
-                if(jumperTicks >= total + 20) // 1 second of forgiveness
-                    {
-                        onAfraidOfHeights(currentJumper);
-                    }
-                else
-                    {
-                        if(jumperTicks % 20 == 0)
-                            {
-                                long ticksLeft = total - jumperTicks;
-                                long secsLeft = ticksLeft / 20;
-
-                                String msg = "§3»» §f You have §3" + secsLeft + " §fsecond" + (secsLeft > 1 ? "s" : "") + " to jump §3««";
-
-                                if(secsLeft <= 3)
-                                    msg = "§3»» §4 You have §c" + secsLeft + " §4second" + (secsLeft > 1 ? "s" : "") + " to jump §3««";
-
-                                Msg.sendActionBar(currentJumper, msg);
-                            }
-                    }
+                // Player didn't jump in time.
             }
-
-        if(roundCountdownTicks >= 0)
+            else
             {
-                long ticksTmp = roundCountdownTicks;
-                roundCountdownTicks++;
-                long total = 3 * 20;
+                if(jumperTicks % 20 == 0)
+                {
+                    long ticksLeft = total - jumperTicks;
+                    long secsLeft = ticksLeft / 20;
 
-                // Leave two seconds of "silence".
-                if(ticksTmp >= 40 && ticksTmp % 20 == 0)
-                    {
-                        long secsLeft = (total - ticksTmp) / 20;
+                    String msg = "§f You have §3" + secsLeft + " §fsecond" + (secsLeft > 1 ? "s" : "") + " to jump";
 
-                        for(Player player : getServer().getOnlinePlayers())
-                            {
-                                if(secsLeft <= 0)
-                                    {
-                                        Msg.sendTitle(player, "", "");
-                                        //player.playSound(player.getEyeLocation(), Sound.FIREWORK_LARGE_BLAST, SoundCategory.MASTER, 1f, 1f);
-                                    }
-                                else
-                                    {
-                                        Msg.sendTitle(player, "", "§aRound " + currentRound);
-                                        player.playNote(player.getEyeLocation(), Instrument.PIANO, new Note((int)secsLeft));
-                                    }
-                            }
+                    if(secsLeft <= 3)
+                        msg = "§4 You have §c" + secsLeft + " §4second" + (secsLeft > 1 ? "s" : "") + " to jump";
 
-                        if(secsLeft <= 0)
-                            {
-                                roundCountdownTicks = -1;
-                                startRound();
-                            }
-                    }
+                    currentJumper.getPlayer().sendActionBar(msg);
+                }
             }
+        }
+
+        /*if(roundCountdownTicks >= 0)
+        {
+            long ticksTmp = roundCountdownTicks;
+            roundCountdownTicks++;
+            long total = 3 * 20;
+
+            // Leave two seconds of "silence".
+            if(ticksTmp >= 40 && ticksTmp % 20 == 0)
+            {
+                long secsLeft = (total - ticksTmp) / 20;
+
+                if(secsLeft <= 0)
+                {
+                    sendTitleToAllPlayers("", "");
+                    roundCountdownTicks = -1;
+                    startRound();
+                }
+                else if(secsLeft == 3)
+                {
+                    sendTitleToAllPlayers("", ChatColor.GOLD + "Round " + (roundNumber + 1));
+                }
+
+                playNoteForAllPlayers(Instrument.PIANO, new Note((int)secsLeft));
+            }
+        }*/
 
         return null;
     }
 
-    GameState tickEnd(long ticks)
+    private GameState tickEnded(long ticks)
     {
-        if(ticks == 0)
-            {
-                List<Player> winners = scoreboard.getWinners(new ArrayList<>(getServer().getOnlinePlayers()));
-
-                for(Player p : winners)
-                    {
-                        if(p.isOnline())
-                            {
-                                GamePlayer gp = getGamePlayer(p.getUniqueId());
-
-                                if(!gp.joinedAsSpectator())
-                                    gp.setWinner();
-                            }
-                    }
-
-                winnerName = "";
-
-                if(winners.size() == 1)
-                    {
-                        winnerName = winners.get(0).getName();
-                    }
-                else
-                    {
-                        String c = "";
-
-                        for(int i = 0; i < winners.size(); i++)
-                            {
-                                c += winners.get(i).getName();
-
-                                int left = winners.size() - (i + 1);
-
-                                if(left == 1)
-                                    c += " and ";
-                                else if(left > 1)
-                                    c += ", ";
-                            }
-
-                        winnerName = c;
-                    }
-
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        if(!debug)
-                            {
-                                GamePlayer gp = getGamePlayer(player);
-                                gp.recordStats(moreThanOnePlayed, mapID);
-                            }
-
-                        player.setGameMode(GameMode.SPECTATOR);
-
-                        if(winnerName != "")
-                            {
-                                Msg.send(player, chatPrefix + "&b%s wins the game!", winnerName);
-                            }
-                        else
-                            {
-                                Msg.send(player, chatPrefix + "&bDraw! Nobody wins.");
-                            }
-
-                        List<Object> list = new ArrayList<>();
-                        list.add(" Click here to leave the game: ");
-                        list.add(button("&c[Quit]", "&cLeave this game", "/quit"));
-                        Msg.sendRaw(player, list);
-                    }
-            }
+        updateGamebar(1);
 
         long timeLeft = (endDuration * 20) - ticks;
 
-        // Every second, update the sidebar timer.
-        if(timeLeft % 20L == 0)
-            {
-                scoreboard.refreshTitle(timeLeft);
-            }
-
         // Every 5 seconds, show/refresh the winner title announcement.
-        if(timeLeft % (20 * 5) == 0)
-            {
-                for(Player player : getServer().getOnlinePlayers())
-                    {
-                        if(winnerName != "")
-                            {
-                                Msg.sendTitle(player, "&a" + winnerName, "&aWins the Game!");
-                            }
-                        else
-                            {
-                                Msg.sendTitle(player, "&cDraw!", "&cNobody wins");
-                            }
-                    }
-            }
-
-        if(timeLeft <= 0) {
-            getServer().shutdown();
+        if(timeLeft > 0 && (timeLeft % (20 * 5) == 0 || ticks == 1))
+        {
+            if(winnerName != "")
+                sendTitleToAllPlayers(ChatColor.AQUA + winnerName, ChatColor.WHITE + "Wins the Game!");
+            else
+                sendTitleToAllPlayers(ChatColor.AQUA + "Draw!", ChatColor.WHITE + "Nobody wins");
         }
 
         return null;
     }
 
-    // Called once, when the player joins for the first time.
-    public void onPlayerFirstJoin(final Player player, GamePlayer gp)
+    private void stateChange(GameState oldState, GameState newState)
     {
-        didSomeoneJoin = true;
+        stateTicks = 0;
 
-        gp.setName(player.getName());
-        gp.setStartTime(new Date());
-        gp.setSpectator();
-        gp.updateStatsName();
-
-        scoreboard.addPlayer(player);
-
-        if(debug)
-            {
-                if(debugStrings.size() > 0)
-                    {
-                        Msg.send(player, ChatColor.DARK_RED + " === DEBUG INFO ===");
-
-                        for(String s : debugStrings)
-                            {
-                                Msg.send(player, " " + ChatColor.RED + s);
-                            }
-                    }
-            }
-
-        if(gp.joinedAsSpectator())
-            return;
-
-        switch(state)
-            {
-            case INIT:
-            case WAIT_FOR_PLAYERS:
-            case COUNTDOWN_TO_START:
-                scoreboard.setPlayerScore(player, 0);
-                break;
-            default:
-                if(gp.isJumper())
-                    {
-                        scoreboard.setPlayerScore(player, 0);
-                    }
-            }
-
-        if(joinRandomStat == null)
-            {
-                joinRandomStat = getStatsJson(new Random(System.currentTimeMillis()).nextInt(5));
-            }
-
-        new BukkitRunnable()
+        if(newState == GameState.COUNTDOWN_TO_START)
         {
-            @Override public void run()
+            //scoreboard.reset();
+            int count = 0;
+
+            for(VertigoPlayer vp : players)
             {
-                Msg.send(player, " ");
+                if(vp.isPlaying)
+                {
+                    scoreboard.addPlayer(vp.getPlayer());
+                    scoreboard.setPlayerScore(vp.getPlayer(), 0);
 
-                String credits = map.getCredits();
-
-                if(!credits.isEmpty())
-                    Msg.send(player, ChatColor.GOLD + " Welcome to Vertigo!" + ChatColor.WHITE + " Map name: " + ChatColor.AQUA + mapID + ChatColor.WHITE + " - Made by: " + ChatColor.AQUA + credits);
-
-                Msg.send(player, " ");
-
-                sendJsonMessage(player, joinRandomStat);
+                    count++;
+                }
             }
-        }.runTaskLater(this, 20 * 3);
-    }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    Object button(String chat, String tooltip, String command)
-    {
-        Map<String, Object> map = new HashMap<>();
-        map.put("text", Msg.format(chat));
+            moreThanOnePlayed = count > 1;
 
-        Map<String, Object> map2 = new HashMap<>();
-        map.put("clickEvent", map2);
+            // Make jump order.
+            jumpers.clear();
 
-        map2.put("action", "run_command");
-        map2.put("value", command);
+            for(VertigoPlayer vp : players)
+            {
+                if(vp.isPlaying)
+                {
+                    jumpers.add(vp);
+                }
+            }
 
-        map2 = new HashMap();
-        map.put("hoverEvent", map2);
-        map2.put("action", "show_text");
-        map2.put("value", Msg.format(tooltip));
+            Collections.shuffle(jumpers, new Random(System.currentTimeMillis()));
 
-        return map;
-    }
-
-    // Called whenever a player joins. This could be after a player disconnect during a game, for instance.
-    @EventHandler(ignoreCancelled = true)
-    public void onPlayerJoin(PlayerJoinEvent event)
-    {
-        Player player = event.getPlayer();
-        GamePlayer gp = getGamePlayer(player);
-
-        if (!gp.hasJoinedBefore) {
-            gp.hasJoinedBefore = true;
-            onPlayerFirstJoin(player, gp);
+            currentJumperIndex = 0;
         }
+        else if(newState == GameState.RUNNING)
+        {
+            startRound();
+        }
+        else if(newState == GameState.ENDED)
+        {
+            if(winnerName != "")
+                sendMsgToAllPlayers(chatPrefix + "&b" + winnerName + " wins the game!");
+            else
+                sendMsgToAllPlayers( chatPrefix + "&bDraw! Nobody wins.");
 
-        gp.setDisconnectedTicks(0);
+            playSoundForAllPlayers(Sound.UI_TOAST_CHALLENGE_COMPLETE);
 
-        if(gp.joinedAsSpectator())
+            for(VertigoPlayer vp : players)
             {
-                gp.setSpectator();
-                return;
+                vp.getPlayer().setGameMode(GameMode.SPECTATOR);
+
+                /*List<Object> list = new ArrayList<>();
+                list.add(" Click here to leave the game: ");
+                list.add(button("&c[Quit]", "&cLeave this game", "/quit"));
+                Msg.sendRaw(player, list);*/
             }
-
-        scoreboard.addPlayer(player);
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event)
-    {
-        if (state == GameState.END) {
-            onPlayerLeave(event.getPlayer());
         }
     }
 
-    public void onPlayerLeave(Player player)
+    /*private void startRoundCountdown()
     {
-        GamePlayer gp = getGamePlayer(player);
+        sendActionBarToAllPlayers("Round over. Get ready for the next round.");
 
-        if(!gp.joinedAsSpectator())
-            {
-                gp.setEndTime(new Date());
+        roundCountdownTicks = 0;
+    }*/
 
-                if(!debug)
-                    gp.recordStats(moreThanOnePlayed, mapID);
-            }
-        gamePlayers.remove(gp.getUuid());
+    private void startRound()
+    {
+        currentJumperPassedRing = false;
+
+        map.removeRing();
+
+        if(map.spawnRing())
+        {
+            playSoundForAllPlayers(Sound.BLOCK_BEACON_ACTIVATE);
+            //sendMsgToAllPlayers(chatPrefix + "§fA §6golden ring §fhas appeared. Jump through it to earn bonus points!");
+        }
+
+        currentJumperIndex = 0;
+
+        onPlayerTurn(jumpers.get(currentJumperIndex));
     }
 
-    public boolean onCommand(CommandSender sender, Command bcommand, String command, String[] args)
+    private void onPlayerTurn(VertigoPlayer vp)
     {
-        if (!(sender instanceof Player)) return true;
-        final Player player = (Player)sender;
+        scoreboard.setPlayerCurrent(vp.getPlayer());
 
-        if(command.equalsIgnoreCase("ready") && state == GameState.WAIT_FOR_PLAYERS)
+        vp.setJumper();
+
+        //vp.getPlayer().playSound(vp.getPlayer().getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
+        vp.getPlayer().teleport(map.getJumpSpot());
+
+        Random r = new Random(System.currentTimeMillis());
+        String[] strings = { "It's your turn.", "You're up!", "You're next." };
+        String[] strings2 = { "Good luck ツ", "Don't break a leg!", "Geronimoooo!" };
+
+        vp.getPlayer().sendTitle("", "§6" + strings[r.nextInt(strings.length)] + " " + strings2[r.nextInt(strings2.length)], -1, -1, -1);
+        //vp.getPlayer().playSound(vp.getPlayer().getLocation(), Sound.ENTITY_GHAST_SCREAM, SoundCategory.MASTER, 1, 1);
+
+        /*BukkitRunnable task = new BukkitRunnable()
+        {
+            int i = 0;
+
+            @Override
+            public void run()
             {
-                getGamePlayer(player).setReady(true);
-                scoreboard.setPlayerScore(player, 1);
-                Msg.send(player, ChatColor.GREEN + " Marked as ready");
-            }
-        else if(command.equalsIgnoreCase("tp") && getGamePlayer(player).isSpectator())
-            {
-                if(args.length != 1)
-                    {
-                        Msg.send(player, " &cUsage: /tp <player>");
-                        return true;
-                    }
+                vp.getPlayer().playSound(vp.getPlayer().getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, SoundCategory.MASTER, 1, 2);
+                i++;
 
-                String arg = args[0];
-
-                for(Player target : getServer().getOnlinePlayers())
-                    {
-                        if(arg.equalsIgnoreCase(target.getName()))
-                            {
-                                player.teleport(target);
-                                Msg.send(player, " &bTeleported to %s", target.getName());
-                                return true;
-                            }
-                    }
-
-                Msg.send(player, " &cPlayer not found: %s", arg);
-                return true;
+                if(i >= 3)
+                    this.cancel();
             }
-        else if(command.equalsIgnoreCase("highscore") || command.equalsIgnoreCase("hi"))
-            {
-                int type = 0;
+        };
 
-                if(args.length == 1)
-                    {
-                        try
-                            {
-                                type = Integer.parseInt(args[0]);
-                            }
-                        catch(NumberFormatException e)
-                            {}
-                    }
+        task.runTaskTimer(loader, 1, 5);*/
 
-                String json = getStatsJson(type);
+        vp.getPlayer().playSound(vp.getPlayer().getEyeLocation(), Sound.BLOCK_BELL_USE, SoundCategory.MASTER, 1, 1);
 
-                sendJsonMessage(player, json);
-            }
-        else if(command.equalsIgnoreCase("stats"))
-            {
-                showStats(player, (args.length == 0 ? player.getName() : args[0]));
-            }
-        else if(command.equals("jump"))
-            {
-                onPlayerTurn(player);
-            }
-        else if(command.equals("quit"))
-            {
-                daemonRemovePlayer(player.getUniqueId());
-            }
-        else
-            {
-                return false;
-            }
-
-        return true;
+        jumperTicks = 0;
+        currentJumper = vp;
     }
 
-    @EventHandler
-    public void onEntityDamage(EntityDamageEvent event)
+    void playerDamage(Player player, EntityDamageEvent event)
     {
-        if(!(event.getEntity() instanceof Player))
-            return;
-
-        Player player = (Player)event.getEntity();
-
-        // Disregard if player is not in adv mode.
-        if(player.getGameMode() != GameMode.ADVENTURE)
-            {
-                event.setCancelled(true);
-                return;
-            }
-
-        // Disregard if player Y is above the jump threshold.
-        if(player.getLocation().getY() > map.getJumpThresholdY())
-            {
-                event.setCancelled(true);
-                //debug("Player Y above jump threshold");
-                return;
-            }
-
         // Player is below jump threshold and took fall damage. Ie he didn't land in water.
-        if(event.getCause() == DamageCause.FALL)
-            {
-                onBrokenLegs(player, player.getLocation());
-            }
-
-        event.setCancelled(true);
+        if(event.getCause() == EntityDamageEvent.DamageCause.FALL)
+        {
+            playerLandedBadly(player, player.getLocation());
+        }
     }
 
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event)
+    void playerMove(Player player, PlayerMoveEvent event)
     {
-        Player player = event.getPlayer();
-
         // Disregard if player is not in adv mode.
         if(player.getGameMode() != GameMode.ADVENTURE)
             return;
@@ -995,286 +598,95 @@ public final class VertigoGame extends JavaPlugin implements Listener
             return;
 
         if(!currentJumperHasJumped)
-            {
-                currentJumperHasJumped = true;
-                Msg.sendActionBar(player, "");
-            }
-        if(currentRingCenter != null && !currentJumperPassedRing)
-            {
-                int rx = currentRingCenter.getBlockX();
-                int ry = currentRingCenter.getBlockY();
-                int rz = currentRingCenter.getBlockZ();
-                Location f = event.getFrom();
-                Location t = event.getTo();
+        {
+            currentJumperHasJumped = true;
+            player.sendActionBar("");
+        }
+        if(map.currentRingCenter != null && !currentJumperPassedRing)
+        {
+            int rx = map.currentRingCenter.getBlockX();
+            int ry = map.currentRingCenter.getBlockY();
+            int rz = map.currentRingCenter.getBlockZ();
+            Location f = event.getFrom();
+            Location t = event.getTo();
 
-                if((t.getBlockX() == rx && t.getBlockZ() == rz || f.getBlockX() == rx && f.getBlockZ() == rz) && (t.getBlockY() <= ry && f.getBlockY() >= ry))
-                    {
-                        // world.spigot().playEffect(currentRingCenter, Effect.COLOURED_DUST, 0, 0, 2f, 2f, 2f, .2f, 2000, 50);
-                        world.spawnParticle(Particle.REDSTONE, currentRingCenter, 50, 2f, 2f, 2f, .2f, new Particle.DustOptions(org.bukkit.Color.YELLOW, 10.0f));
-                        currentJumperPassedRing = true;
-                    }
+            if((t.getBlockX() == rx && t.getBlockZ() == rz || f.getBlockX() == rx && f.getBlockZ() == rz) && (t.getBlockY() <= ry && f.getBlockY() >= ry))
+            {
+                world.spawnParticle(Particle.REDSTONE, map.currentRingCenter, 50, 2f, 2f, 2f, .2f, new Particle.DustOptions(org.bukkit.Color.YELLOW, 10.0f));
+                currentJumperPassedRing = true;
             }
+        }
 
         Location l = event.getTo();
 
         // Check if player landed in water.
         if(l.getBlock().getType() == Material.WATER)
-            {
-                onSplash(player, l);
-            }
-    }
-
-    @EventHandler
-    public void onFoodLevelChange(FoodLevelChangeEvent event)
-    {
-        event.setCancelled(true);
-    }
-
-    private void callNextJumper()
-    {
-        scoreboard.resetCurrent();
-        currentJumperHasJumped = false;
-        currentJumperPassedRing = false;
-
-        boolean advance = false;
-
-        currentJumperIndex++;
-
-        // All players already jumped this round.
-        if(currentJumperIndex >= roundJumpers.size())
-            {
-                advance = true;
-            }
-        else
-            {
-                // Extra check. Players could have disconnected since the round started.
-                if(roundJumpers.get(currentJumperIndex) == null || !roundJumpers.get(currentJumperIndex).isOnline())
-                    {
-                        callNextJumper();
-                    }
-                else
-                    {
-                        GamePlayer gp = getGamePlayer(roundJumpers.get(currentJumperIndex));
-
-                        if(gp.joinedAsSpectator())
-                            callNextJumper();
-                        else
-                            onPlayerTurn(roundJumpers.get(currentJumperIndex));
-                    }
-            }
-
-        if(advance)
-            {
-                currentRound++;
-                startRoundCountdown();
-            }
-    }
-
-    private void startRoundCountdown()
-    {
-        for(Player player : getServer().getOnlinePlayers())
-            {
-                Msg.send(player, chatPrefix + "§fRound over. Get ready for the next round..");
-            }
-
-        roundCountdownTicks = 0;
-    }
-
-    private void removeRing()
-    {
-        if(currentRingCenter != null)
-            {
-                for(Block b : currentRing)
-                    world.getBlockAt(b.getLocation()).setType(Material.AIR);
-
-                world.getBlockAt(currentRingCenter).setType(Material.AIR);
-
-                currentRing.clear();
-
-                currentRingCenter = null;
-            }
-    }
-
-    private void startRound()
-    {
-        currentJumperPassedRing = false;
-
-        removeRing();
-
-        // Spawn a ring?
-        currentRingCenter = map.getRingLocation(ringChance);
-
-        if(currentRingCenter != null)
-            {
-                currentRing.add(world.getBlockAt(currentRingCenter.clone().add(1, 0, 0)));
-                currentRing.add(world.getBlockAt(currentRingCenter.clone().subtract(1, 0, 0)));
-                currentRing.add(world.getBlockAt(currentRingCenter.clone().add(0, 0, 1)));
-                currentRing.add(world.getBlockAt(currentRingCenter.clone().subtract(0, 0, 1)));
-
-                for(Block b : currentRing)
-                    world.getBlockAt(b.getLocation()).setType(Material.GOLD_BLOCK);
-
-                // world.getBlockAt(currentRingCenter).setType(Material.ENDER_PORTAL);
-
-                // new BukkitRunnable()
-                // {
-                //              @Override public void run()
-                //      {
-                //              for(final Player player : getServer().getOnlinePlayers())
-                //      {
-                //                      player.sendBlockChange(currentRingCenter, Material.AIR, (byte)0);
-                //      }
-                //      }
-                // }.runTaskLater(MinigamesPlugin.getInstance(), 1);
-
-                for(final Player player : getServer().getOnlinePlayers())
-                    {
-                        Msg.send(player, chatPrefix + "§fA §6golden ring §fhas appeared. Jump through it and land in water to earn an extra 3 points!");
-                    }
-            }
-
-        // Distribute players randomly to mix every round up a little.
-        roundJumpers.clear();
-
-        for(Player player : getServer().getOnlinePlayers())
-            {
-                GamePlayer gp = getGamePlayer(player);
-
-                if(!gp.joinedAsSpectator())
-                    {
-                        roundJumpers.add(player);
-                        gp.addRound();
-                    }
-            }
-
-        Collections.shuffle(roundJumpers, new Random(System.currentTimeMillis()));
-
-        currentJumperIndex = 0;
-
-        scoreboard.setTitle("Round " + currentRound);
-
-        onPlayerTurn(roundJumpers.get(currentJumperIndex));
-    }
-
-    private void onPlayerTurn(final Player player)
-    {
-        scoreboard.setPlayerCurrent(player);
-
-        GamePlayer gp = getGamePlayer(player);
-
-        player.teleport(map.getJumpSpot());
-        gp.setJumper();
-
-        Random r = new Random(System.currentTimeMillis());
-        String[] strings = { "It's your turn.", "You're up!", "You're next." };
-        String[] strings2 = { "Good luck ツ", "Don't break a leg ;-)", "Geronimo!" };
-
-        Msg.sendTitle(player, "", "§6" + strings[r.nextInt(strings.length)] + " " + strings2[r.nextInt(strings2.length)]);
-
-        player.playSound(player.getLocation(), Sound.ENTITY_GHAST_SCREAM, SoundCategory.MASTER, 1, 1);
-
-        new BukkitRunnable()
         {
-            @Override public void run()
-            {
-                for(Player p : getServer().getOnlinePlayers())
-                    {
-                        if(p != player)
-                            {
-                                Msg.sendTitle(p, "", "§aNext jumper: §f" + player.getName());
-                            }
-                    }
-            }
-        }.runTaskLater(this, 20);
-
-        jumperTicks = 0;
-        currentJumper = player;
+            playerLandedInWater(player, l);
+        }
     }
 
-    private void onAfraidOfHeights(Player player)
+    private void playerLandedBadly(Player player, Location landingLocation)
     {
-        Msg.sendActionBar(player, "");
-
-        Random r = new Random(System.currentTimeMillis());
-        String[] strings = { "was too afraid to jump.", "chickened out.", "couldn't overcome their acrophobia.", "had a bad case of vertigo." };
-        String string = strings[r.nextInt(strings.length)];
-
-        for(Player p : getServer().getOnlinePlayers())
-            {
-                Msg.send(p, chatPrefix + "§3" + player.getName() + " §c" + string);
-            }
+        player.sendActionBar("");
 
         currentJumper = null;
 
-        // This might be fired after the player has disconnected.
-        if(player.isOnline())
-            {
-                GamePlayer gp = getGamePlayer(player);
-                gp.setSpectator();
-                gp.addChicken();
-
-                // Player has most likely gone afk.
-                if(gp.getChickenStreak() >= 3)
-                    {
-                        gp.setJoinedAsSpectator(true);
-                        scoreboard.removePlayer(player);
-
-                        for(Player p : getServer().getOnlinePlayers())
-                            {
-                                Msg.send(p, chatPrefix + "§3" + player.getName() + " §7was disqualified because they didn't jump 3 times in a row.");
-                            }
-                    }
-
-                player.teleport(gp.getSpawnLocation());
-            }
-
-        callNextJumper();
-    }
-
-    private void onBrokenLegs(Player player, Location landingLocation)
-    {
-        Msg.sendActionBar(player, "");
-
-        currentJumper = null;
-
-        // world.spigot().playEffect(landingLocation, Effect.EXPLOSION, 0, 0, .5f, .5f, .5f, .5f, 1000, 50);
         world.spawnParticle(Particle.EXPLOSION_LARGE, landingLocation, 50, .5f, .5f, .5f, .5f);
 
-        if(player.isOnline())
-            {
-                GamePlayer gp = getGamePlayer(player);
-                gp.setSpectator();
-                gp.addSplat();
+        VertigoPlayer vp = findPlayer(player);
 
-                player.teleport(gp.getSpawnLocation());
-            }
+        if(vp != null)
+        {
+            vp.setSpectator();
+            player.setVelocity(new Vector(0, 0, 0));
+            player.setFallDistance(0);
+            player.teleport(vp.getSpawnLocation());
+            //player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
+        }
 
-        Random r = new Random(System.currentTimeMillis());
-        String[] strings = { "broke their legs.", "heard their bones being shattered.", "is in serious need of medical attention.", "believed they could fly." };
-        String string = strings[r.nextInt(strings.length)];
+        String msg = "§cSplat! §3" + player.getName();
 
-        for(Player p : getServer().getOnlinePlayers())
-            {
-                Msg.send(p, chatPrefix + "§cSplat! §3" + player.getName() + " §c" + string);
-                p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BIG_FALL, SoundCategory.MASTER, 1, 1);
-            }
+        int score = 0;
 
-        //summonRocket(landingLocation.subtract(0, 1, 0), Color.RED);
+        if(currentJumperPassedRing)
+        {
+            score += 1;
+            scoreboard.addPoints(player, score);
+            map.removeRing();
 
-        Msg.sendTitle(player, "", "§4Splat!");
+            msg = "§cSplat! §3" + player.getName() + " §6+" + score + " point";
+        }
+
+        //Random r = new Random(System.currentTimeMillis());
+        //String[] strings = { "broke their legs.", "heard their bones being shattered.", "is in serious need of medical attention.", "believed they could fly." };
+        //String string = strings[r.nextInt(strings.length)];
+
+
+        sendActionBarToAllPlayers(msg);
+        playSoundForAllPlayers(Sound.ENTITY_PLAYER_BIG_FALL);
+
+        player.sendTitle("", "§4Splat!", -1, -1, -1);
 
         callNextJumper();
     }
 
-    private void onSplash(Player player, Location landingLocation)
+    private void playerLandedInWater(Player player, Location landingLocation)
     {
-        Msg.sendActionBar(player, "");
+        player.sendActionBar("");
 
         currentJumper = null;
 
-        GamePlayer gp = getGamePlayer(player);
-        gp.setSpectator();
-        gp.addSplash();
+        VertigoPlayer vp = findPlayer(player);
+
+        if(vp != null)
+        {
+            vp.setSpectator();
+            player.setVelocity(new Vector(0, 0, 0));
+            player.setFallDistance(0);
+            player.teleport(vp.getSpawnLocation());
+            //player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
+        }
 
         int score = 1;
         Location l = landingLocation.clone();
@@ -1293,59 +705,50 @@ public final class VertigoGame extends JavaPlugin implements Listener
         int adjacentBlocks = 0;
 
         for(Block block : adjacent)
+        {
+            if(map.isBlock(block.getType()))
             {
-                if(map.isBlock(block.getType()))
-                    {
-                        adjacentBlocks++;
-                        score++;
-                    }
+                adjacentBlocks++;
+                score++;
             }
+        }
 
         if(currentJumperPassedRing)
-            {
-                gp.addGoldenRing();
-                score += 3;
+        {
+            score += 3;
+            map.removeRing();
+        }
 
-                removeRing();
-            }
+        String msg = "§9Splash! §3" + player.getName() + " §6+" + score + "§7";
+        sendActionBarToAllPlayers(msg);
 
-        String msg = chatPrefix + "§9Splash! §3" + player.getName() + " §6+" + score + "§7";
+        /*if(adjacentBlocks > 0)
+        {
+            msg += " (1 + adjacent blocks: " + adjacentBlocks;
 
-        if(adjacentBlocks > 0)
-            {
-                msg += " (1 + adjacent blocks: " + adjacentBlocks;
+            if(currentJumperPassedRing)
+                msg += ", golden ring: 3";
 
-                if(currentJumperPassedRing)
-                    msg += ", golden ring: 3";
-
-                msg += ")";
-            }
+            msg += ")";
+        }
         else
-            {
-                if(currentJumperPassedRing)
-                    msg += " (1 + golden ring: 3)";
-            }
+        {
+            if(currentJumperPassedRing)
+                msg += " (1 + golden ring: 3)";
+        }*/
 
-        for(Player p : getServer().getOnlinePlayers())
-            {
-                //if(currentJumperPassedRing)
-                //      Msg.send(p, chatPrefix + "§9Splash! §3" + player.getName() + " §fjumped through the golden ring!");
+        //sendMsgToAllPlayers(msg);
 
-                Msg.send(p, msg);
+        if(currentJumperPassedRing)
+            playSoundForAllPlayers(Sound.ENTITY_PLAYER_LEVELUP);
+        else
+            playSoundForAllPlayers(Sound.ENTITY_PLAYER_SPLASH_HIGH_SPEED);
+        //  playSoundForAllPlayers(Sound.ENTITY_ARROW_HIT_PLAYER);
 
-                if(currentJumperPassedRing)
-                    p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 1, 1);
-                else
-                    p.playSound(p.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, SoundCategory.MASTER, 1, 1);
-            }
-
-        Msg.sendTitle(player, "", "§9Splash! §6+ " + score + " point" + (score > 1 ? "s" : ""));
+        player.sendTitle("", "§9Splash! §6+ " + score + " point" + (score > 1 ? "s" : ""), -1, -1, -1);
 
         scoreboard.addPoints(player, score);
-        gp.addPoint(score);
 
-        // Animation
-        // world.spigot().playEffect(landingLocation, Effect.SPLASH, 0, 0, .5f, 4f, .5f, .1f, 5000, 50);
         world.spawnParticle(Particle.WATER_SPLASH, landingLocation, 50, .5f, 4f, .5f, .1f);
 
         ItemStack r = map.getRandomBlock();
@@ -1356,6 +759,7 @@ public final class VertigoGame extends JavaPlugin implements Listener
         Rotatable skullData = (Rotatable)Material.PLAYER_HEAD.createBlockData();
 
         int orientation = new Random(System.currentTimeMillis()).nextInt(12);
+
         if(orientation == 0)
             skullData.setRotation(BlockFace.EAST);
         else if(orientation == 1)
@@ -1383,410 +787,238 @@ public final class VertigoGame extends JavaPlugin implements Listener
 
         head.setBlockData(skullData);
         Skull s = (Skull)head.getState();
-        s.setOwner(player.getName());
+        //s.setOwningPlayer(player);
+        s.setPlayerProfile(player.getPlayerProfile());
         s.update();
 
         map.addBlock();
+        map.addSkull(head);
 
-        player.teleport(gp.getSpawnLocation());
+        //player.teleport(gp.getSpawnLocation());
 
         callNextJumper();
     }
 
-    GamePlayer getGamePlayer(UUID playerId) {
-        GamePlayer result = gamePlayers.get(playerId);
-        if (result == null) {
-            result = new GamePlayer(this, playerId);
-            gamePlayers.put(playerId, result);
+    private void playerTimedOut(VertigoPlayer vp)
+    {
+        vp.getPlayer().sendActionBar("");
+
+        /*Random r = new Random(System.currentTimeMillis());
+        String[] strings = { "was too afraid to jump.", "chickened out.", "couldn't overcome their acrophobia.", "had a bad case of vertigo." };
+        String string = strings[r.nextInt(strings.length)];
+
+        sendMsgToAllPlayers(chatPrefix + "§3" + vp.getPlayer().getName() + " §c" + string);*/
+
+        currentJumper = null;
+
+        // This might be fired after the player has disconnected.
+        if(vp.getPlayer().isOnline())
+        {
+            vp.setSpectator();
+            vp.timeouts++;
+
+            // Player has most likely gone afk.
+            if(vp.timeouts >= 3)
+            {
+                vp.isPlaying = false;
+                scoreboard.removePlayer(vp.getPlayer());
+
+                sendMsgToAllPlayers(chatPrefix + "§3" + vp.getPlayer().getName() + " §7was disqualified.");
+            }
+
+            vp.getPlayer().teleport(vp.getSpawnLocation());
+            vp.getPlayer().playSound(vp.getPlayer().getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
         }
-        return result;
+
+        callNextJumper();
     }
 
-    GamePlayer getGamePlayer(Player player) {
-        GamePlayer result = getGamePlayer(player.getUniqueId());
-        result.setName(player.getName());
-        return result;
-    }
-
-    public Location getSpawnLocation()
+    private void callNextJumper()
     {
-        return new Location(world, 255, 60, 255);
-    }
+        scoreboard.resetCurrent();
+        currentJumperHasJumped = false;
+        currentJumperPassedRing = false;
 
-    @EventHandler
-    public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
-        if (getGamePlayer(event.getPlayer().getUniqueId()).hasJoinedBefore) return;
-        event.setSpawnLocation(getSpawnLocation(event.getPlayer()));
-    }
+        boolean advance = false;
 
-    public Location getSpawnLocation(Player player)
-    {
-        switch (state)
-            {
-            case INIT:
-            case WAIT_FOR_PLAYERS:
-            case COUNTDOWN_TO_START:
-                return getGamePlayer(player).getSpawnLocation();
-            default:
-                return world.getSpawnLocation();
-            }
-    }
+        currentJumperIndex++;
 
-    String getStatsJson(int type)
-    {
-        // 0: Top dog (wins, superior wins)
-        // 1: Top splashers
-        // 2: Top splatters
-        // 3: Top scorers
-        // 4: Top contestants
-        // 5: Top ringers
-
-        String json = "[";
-
-        if(type == 0)
-            {
-                List<PlayerStats> list = PlayerStats.loadTopWinners(this);
-
-                json += "{\"text\": \" §6»» §bVertigo top dogs §6««\n\"}, ";
-
-                int i = 0;
-                for(PlayerStats obj : list)
-                    {
-                        if(i == 0)
-                            json += "{\"text\": \" §3Current leader: \"}, ";
-                        else
-                            json += "{\"text\": \" §3Runner-up: \"}, ";
-
-                        json += "{\"text\": \"§b" + obj.getName() + " §fwith §b" + obj.getGamesWon() + " §fwin" + (obj.getGamesWon() == 1 ? "" : "s") + "\"}, ";
-
-                        if(obj.getSuperiorWins() > 0)
-                            json += "{\"text\": \"§f, of which §b" + obj.getSuperiorWins() + " §f" + (obj.getSuperiorWins() == 1 ? "is a" : "are") + " §asuperior win" + (obj.getSuperiorWins() == 1 ? "" : "s") + "\"}, ";
-
-                        json += "{\"text\": \"§f.\n\"}, ";
-
-                        i++;
-                    }
-
-                if(i == 0)
-                    {
-                        json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
-                    }
-            }
-        else if(type == 1)
-            {
-                List<PlayerStats> list = PlayerStats.loadTopSplashers(this);
-
-                json += "{\"text\": \" §6»» §bVertigo top splashers §6««\n\"}, ";
-
-                int i = 0;
-                for(PlayerStats obj : list)
-                    {
-                        if(i == 0)
-                            json += "{\"text\": \" §3Current leader: \"}, ";
-                        else
-                            json += "{\"text\": \" §3Runner-up: \"}, ";
-
-                        json += "{\"text\": \"§b" + obj.getName() + " §fwith §b" + obj.getSplashes() + " §fsplash" + (obj.getSplashes() == 1 ? "" : "es") + ".\n\"}, ";
-
-                        i++;
-                    }
-
-                if(i == 0)
-                    {
-                        json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
-                    }
-            }
-        else if(type == 2)
-            {
-                List<PlayerStats> list = PlayerStats.loadTopSplatters(this);
-
-                json += "{\"text\": \" §6»» §bVertigo top broken legs §6««\n\"}, ";
-
-                int i = 0;
-                for(PlayerStats obj : list)
-                    {
-                        if(i == 0)
-                            json += "{\"text\": \" §3Current leader: \"}, ";
-                        else
-                            json += "{\"text\": \" §3Runner-up: \"}, ";
-
-                        json += "{\"text\": \"§b" + obj.getName() + " §fbroke their legs §b" + obj.getSplats() + " §ftime" + (obj.getSplats() == 1 ? "" : "s") + ".\n\"}, ";
-
-                        i++;
-                    }
-
-                if(i == 0)
-                    {
-                        json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
-                    }
-            }
-        else if(type == 3)
-            {
-                List<PlayerStats> list = PlayerStats.loadTopScorers(this);
-
-                json += "{\"text\": \" §6»» §bVertigo top scorers §6««\n\"}, ";
-
-                int i = 0;
-                for(PlayerStats obj : list)
-                    {
-                        if(i == 0)
-                            json += "{\"text\": \" §3Current leader: \"}, ";
-                        else
-                            json += "{\"text\": \" §3Runner-up: \"}, ";
-
-                        json += "{\"text\": \"§b" + obj.getName() + " §fhas acquired §b" + obj.getPoints() + " §fpoint" + (obj.getPoints() == 1 ? "" : "s") + ".\n\"}, ";
-
-                        i++;
-                    }
-
-                if(i == 0)
-                    {
-                        json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
-                    }
-            }
-        else if(type == 4)
-            {
-                List<PlayerStats> list = PlayerStats.loadTopContestants(this);
-
-                json += "{\"text\": \" §6»» §bVertigo top contestants §6««\n\"}, ";
-
-                int i = 0;
-                for(PlayerStats obj : list)
-                    {
-                        if(i == 0)
-                            json += "{\"text\": \" §3Current leader: \"}, ";
-                        else
-                            json += "{\"text\": \" §3Runner-up: \"}, ";
-
-                        json += "{\"text\": \"§b" + obj.getName() + " §fhas played §b" + obj.getGamesPlayed() + " §fgame" + (obj.getGamesPlayed() == 1 ? "" : "s") + "\"}, ";
-
-                        if(obj.getRoundsPlayed() > 0)
-                            json += "{\"text\": \"§f, and a total of §b" + obj.getRoundsPlayed() + " §fround" + (obj.getRoundsPlayed() == 1 ? "" : "s") + "\"}, ";
-
-                        json += "{\"text\": \"§f.\n\"}, ";
-
-                        i++;
-                    }
-
-                if(i == 0)
-                    {
-                        json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
-                    }
-            }
-        else if(type == 5)
-            {
-                List<PlayerStats> list = PlayerStats.loadTopRingers(this);
-
-                json += "{\"text\": \" §6»» §bVertigo top ring jumpers §6««\n\"}, ";
-
-                int i = 0;
-                for(PlayerStats obj : list)
-                    {
-                        if(i == 0)
-                            json += "{\"text\": \" §3Current leader: \"}, ";
-                        else
-                            json += "{\"text\": \" §3Runner-up: \"}, ";
-
-                        json += "{\"text\": \"§b" + obj.getName() + " §fhas jumped §b" + obj.getGoldenRings() + " §fgolden ring" + (obj.getGoldenRings() == 1 ? "" : "s") + ".\n\"}, ";
-
-                        i++;
-                    }
-
-                if(i == 0)
-                    {
-                        json += "{\"text\": \" §fNothing in this category yet. You can be the first ?\n\"}, ";
-                    }
-            }
-
-        json += "{\"text\": \"\n §eOther stats:\n\"}, ";
-
-        if(type != 0)
-            json += "{\"text\": \" §f[§bWins§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 0\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who won the most games.\"}}, ";
-
-        if(type != 3)
-            json += "{\"text\": \" §f[§bScorers§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 3\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who acquired most points.\"}}, ";
-
-        if(type != 4)
-            json += "{\"text\": \" §f[§bContestants§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 4\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who played the most.\"}}, ";
-
-        json += "{\"text\": \" \n\"}, ";
-
-        if(type != 1)
-            json += "{\"text\": \" §f[§bSplashers§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 1\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who splashed the most.\"}}, ";
-
-        if(type != 2)
-            json += "{\"text\": \" §f[§bSplatters§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 2\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who splatted the most.\"}}, ";
-
-        if(type != 5)
-            json += "{\"text\": \" §f[§bRing jumpers§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/hi 5\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee who jumped the most golden rings.\"}}, ";
-
-        json += "{\"text\": \"\n §f[§6See your own stats§f]\", \"clickEvent\": {\"action\": \"run_command\", \"value\": \"/stats\" }, \"hoverEvent\": {\"action\": \"show_text\", \"value\": \"§fSee your personal stats.\"}}, ";
-
-        json += "{\"text\": \" \n\"} ";
-        json += "] ";
-
-        return json;
-    }
-
-    void showStats(Player player, String name)
-    {
-        PlayerStats stats = new PlayerStats();
-        stats.loadOverview(name, this);
-
-        if(stats.getGamesPlayed() > 0)
-            {
-                String json = "[";
-                json += "{\"text\": \" §3§l§m   §3 Stats for §b" + name + " §3§l§m   \n\"}, ";
-
-                String who = player.getName().equalsIgnoreCase(name) ? "You have" : name + " has";
-
-                json += "{\"text\": \" §f" + who + " played §b" + stats.getGamesPlayed() + " §fgame" + (stats.getGamesPlayed() == 1 ? "" : "s") + " of Vertigo.\n\"}, ";
-                json += "{\"text\": \" §6Notable stats:\n\"}, ";
-                json += "{\"text\": \" §b" + stats.getRoundsPlayed() + " §fround" + (stats.getRoundsPlayed() == 1 ? "" : "s") + " played §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getGamesWon() + " §fwin" + (stats.getGamesWon() == 1 ? "" : "s") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getSuperiorWins() + " §fsuperior win" + (stats.getSuperiorWins() == 1 ? "" : "s") + "\n\"}, ";
-                json += "{\"text\": \" §b" + stats.getSplashes() + " §fsplash" + (stats.getSplashes() == 1 ? "" : "es") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getSplats() + " §fsplat" + (stats.getSplats() == 1 ? "" : "s") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getGoldenRings() + " §fgolden ring" + (stats.getGoldenRings() == 1 ? "" : "s") + "\n\"}, ";
-
-                json += "{\"text\": \" §6Points acquired:\n\"}, ";
-                json += "{\"text\": \" §b" + stats.getPoints() + " §ftotal point" + (stats.getPoints() == 1 ? "" : "s") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getOnePointers() + " §fone pointer" + (stats.getOnePointers() == 1 ? "" : "s") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getTwoPointers() + " §ftwo pointer" + (stats.getTwoPointers() == 1 ? "" : "s") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getThreePointers() + " §fthree pointer" + (stats.getThreePointers() == 1 ? "" : "s") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getFourPointers() + " §ffour pointer" + (stats.getFourPointers() == 1 ? "" : "s") + " §7/\"}, ";
-                json += "{\"text\": \" §b" + stats.getFivePointers() + " §ffive pointer" + (stats.getFivePointers() == 1 ? "" : "s") + " \n\"}, ";
-
-                json += "{\"text\": \" \n\"} ";
-                json += "] ";
-
-                sendJsonMessage(player, json);
-            }
+        // All players have jumped.
+        if(currentJumperIndex >= jumpers.size())
+        {
+            advance = true;
+        }
         else
+        {
+            VertigoPlayer vp = jumpers.get(currentJumperIndex);
+
+            if(vp.isPlaying)
+                onPlayerTurn(vp);
+            else
+                callNextJumper();
+        }
+
+        if(advance)
+        {
+            //startRoundCountdown();
+            startRound();
+        }
+    }
+
+    private void updateGamebar(double progress)
+    {
+        if(state == GameState.READY)
+        {
+            gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players..");
+        }
+        else if(state == GameState.COUNTDOWN_TO_START)
+        {
+            gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " starting..");
+        }
+        else if(state == GameState.RUNNING)
+        {
+            String t = ChatColor.BOLD + "Vertigo "; // + " Round: " + ChatColor.GOLD + roundNumber;
+
+            if(map.currentRingCenter != null)
+                t += ChatColor.GOLD + "" + ChatColor.BOLD + "◯ " + ChatColor.GOLD + "Golden ring ";
+
+            if(currentJumper != null)
+                t += ChatColor.WHITE + "" + ChatColor.BOLD + "⇨ " + ChatColor.WHITE + "Current jumper: " + ChatColor.AQUA + currentJumper.getPlayer().getName();
+
+            gamebar.setTitle(t);
+        }
+        else if(state == GameState.ENDED)
+        {
+            String t = ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " - ";
+
+            if(winnerName != "")
+                t += "Winner: " + ChatColor.AQUA + winnerName;
+            else
+                t += "It's a draw!";
+
+            gamebar.setTitle(t);
+        }
+
+        if(Double.isNaN(progress))
+            progress = 0;
+
+        gamebar.setProgress(progress);
+        gamebar.setVisible(true);
+    }
+
+    private void sendMsgToAllPlayers(String msg)
+    {
+        for(VertigoPlayer vp : players)
+        {
+            Msg.send(vp.getPlayer(), msg);
+        }
+    }
+
+    private void sendActionBarToAllPlayers(String msg)
+    {
+        for(VertigoPlayer vp : players)
+        {
+            vp.getPlayer().sendActionBar(msg);
+        }
+    }
+
+    private void sendTitleToAllPlayers(String title, String subtitle)
+    {
+        for(VertigoPlayer vp : players)
+        {
+            vp.getPlayer().sendTitle(title, subtitle, -1, -1, -1);
+        }
+    }
+
+    private void playSoundForAllPlayers(Sound sound)
+    {
+        for(VertigoPlayer vp : players)
+        {
+            vp.getPlayer().playSound(vp.getPlayer().getEyeLocation(), sound, SoundCategory.MASTER, 1f, 1f);
+        }
+    }
+
+    private void playNoteForAllPlayers(Instrument instrument, Note note)
+    {
+        for(VertigoPlayer vp : players)
+        {
+            vp.getPlayer().playNote(vp.getPlayer().getEyeLocation(), instrument, note);
+        }
+    }
+
+    private Location getSpawnLocation()
+    {
+        return new Location(this.world, 255, 60, 255);
+    }
+
+    private VertigoPlayer findPlayer(Player player)
+    {
+        for(VertigoPlayer vp : players)
+        {
+            if(vp.getPlayer().getUniqueId().equals(player.getUniqueId()))
+                return vp;
+        }
+
+        return null;
+    }
+
+    private void findWinner()
+    {
+        List<VertigoPlayer> winners = scoreboard.getWinners(players);
+
+        winnerName = "";
+
+        if(winners.size() == 1)
+        {
+            winnerName = winners.get(0).getPlayer().getName();
+            scoreboard.setPlayerWinner(winners.get(0).getPlayer());
+        }
+        else
+        {
+            String c = "";
+
+            for(int i = 0; i < winners.size(); i++)
             {
-                Msg.send(player, " No stats recorded for " + name);
+                c += winners.get(i).getPlayer().getName();
+                scoreboard.setPlayerWinner(winners.get(i).getPlayer());
+
+                int left = winners.size() - (i + 1);
+
+                if(left == 1)
+                    c += " and ";
+                else if(left > 1)
+                    c += ", ";
             }
-    }
 
-    private boolean sendJsonMessage(Player player, String json)
-    {
-        if(player == null)
-            return false;
-
-        final CommandSender console = getServer().getConsoleSender();
-        final String command = "minecraft:tellraw " + player.getName() + " " + json;
-
-        getServer().dispatchCommand(console, command);
-
-        return true;
-    }
-
-    @SuppressWarnings("unused")
-    private void debug(Object o)
-    {
-        System.out.println(o);
-    }
-
-    // Some Daemon related functions. Copy and paste worthy.
-
-    // Request from a player to join this game.  It gets sent to us by
-    // the daemon when the player enters the appropriate remote
-    // command.  Tell the daemon that that the request has been
-    // accepted, then wait for the daemon to send the player here.
-    @EventHandler @SuppressWarnings("unchecked")
-    public void onConnectMessage(ConnectMessageEvent event) {
-        final Message message = event.getMessage();
-        if (message.getFrom().equals("daemon") && message.getChannel().equals("minigames")) {
-            Map<String, Object> payload = (Map<String, Object>)message.getPayload();
-            if (payload == null) return;
-            boolean join = false;
-            boolean leave = false;
-            boolean spectate = false;
-            switch ((String)payload.get("action")) {
-            case "player_join_game":
-                join = true;
-                spectate = false;
-                break;
-            case "player_spectate_game":
-                join = true;
-                spectate = true;
-                break;
-            case "player_leave_game":
-                leave = true;
-                break;
-            default:
-                return;
-            }
-            if (join) {
-                final UUID gameId = UUID.fromString((String)payload.get("game"));
-                if (!gameId.equals(gameUuid)) return;
-                final UUID player = UUID.fromString((String)payload.get("player"));
-                if (spectate) {
-                    if (gamePlayers.containsKey(player)) return;
-                    getGamePlayer(player).setSpectator();
-                    getGamePlayer(player).setJoinedAsSpectator(true);
-                    daemonAddSpectator(player);
-                } else {
-                    if (state != GameState.WAIT_FOR_PLAYERS) return;
-                    if (gamePlayers.containsKey(player)) return;
-                    daemonAddPlayer(player);
-                }
-            } else if (leave) {
-                final UUID playerId = UUID.fromString((String)payload.get("player"));
-                Player player = getServer().getPlayer(playerId);
-                if (player != null) {
-                    onPlayerLeave(player);
-                    player.kickPlayer("Leaving game");
-                }
-            }
+            winnerName = c;
         }
     }
 
-    void daemonRemovePlayer(UUID uuid) {
-        gamePlayers.remove(uuid);
-        Map<String, Object> map = new HashMap<>();
-        map.put("action", "player_leave_game");
-        map.put("player", uuid.toString());
-        map.put("game", gameUuid.toString());
-        Connect.getInstance().send("daemon", "minigames", map);
-        Player player = getServer().getPlayer(uuid);
-        if (player != null) {
-            onPlayerLeave(player);
-            player.kickPlayer("Leaving Game");
+    private void removeDisconnectedPlayers()
+    {
+        if(players.size() > 0)
+        {
+            List<VertigoPlayer> list = new ArrayList<>();
+
+            for(VertigoPlayer vp : players)
+            {
+                Player p = vp.getPlayer();
+                boolean remove = false;
+
+                if(p == null)
+                    remove = true;
+
+                if(p != null && !p.isOnline())
+                    remove = true;
+
+                if(p != null && !p.getWorld().getName().equals(world.getName()))
+                    remove = true;
+
+                if(!remove)
+                    list.add(vp);
+            }
+
+            players = list;
         }
     }
-
-    void daemonAddPlayer(UUID uuid) {
-        Map<String, Object> map = new HashMap<>();
-        map.put("action", "game_add_player");
-        map.put("player", uuid.toString());
-        map.put("game", gameUuid.toString());
-        Connect.getInstance().send("daemon", "minigames", map);
-    }
-
-    void daemonAddSpectator(UUID uuid) {
-        Map<String, Object> map = new HashMap<>();
-        map.put("action", "game_add_spectator");
-        map.put("player", uuid.toString());
-        map.put("game", gameUuid.toString());
-        Connect.getInstance().send("daemon", "minigames", map);
-    }
-
-    void daemonGameEnd() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("action", "game_end");
-        map.put("game", gameUuid.toString());
-        Connect.getInstance().send("daemon", "minigames", map);
-    }
-
-    void daemonGameConfig(String key, Object value) {
-        Map<String, Object> map = new HashMap<>();
-        map.put("action", "game_config");
-        map.put("game", gameUuid.toString());
-        map.put("key", key);
-        map.put("value", value);
-        Connect.getInstance().send("daemon", "minigames", map);
-    }
-
-    // End of daemon stuff
 }
