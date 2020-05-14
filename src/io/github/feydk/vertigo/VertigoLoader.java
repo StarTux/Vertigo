@@ -3,6 +3,7 @@ package io.github.feydk.vertigo;
 import org.apache.commons.lang.RandomStringUtils;
 import org.bukkit.*;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -221,8 +222,31 @@ public final class VertigoLoader extends JavaPlugin implements Listener
             if(!map_loaded)
             {
                 list.add("Hello " + admin.getName() + ". There is no Vertigo game set up right now.\nYou can set one up by selecting a map:\n");
+                int c = 0;
+                int perLine = 4;
 
-                List<String> maps = getConfig().getStringList("maps");
+                for(Object o : Objects.requireNonNull(getConfig().getList("maps")))
+                {
+                    if(o instanceof ArrayList)
+                    {
+                        @SuppressWarnings("unchecked")
+                        ArrayList<LinkedHashMap<String, String>> s = (ArrayList<LinkedHashMap<String, String>>) o;
+
+                        list.add(Msg.button(ChatColor.AQUA + s.get(1).get("name") + " " + ChatColor.GRAY + "✦ ", "/vertigoadmin load " + s.get(0).get("world"), "/vertigoadmin load " + s.get(0).get("world")));
+                        c++;
+
+                        //c += s.get(1).get("name").length() + 3;
+
+                        if(c == perLine)
+                        {
+                            list.add("\n");
+                            c = 0;
+                        }
+
+                    }
+                }
+
+                /*List<String> maps = getConfig().getStringList("maps");
 
                 int c = 0;
                 for(String s : maps)
@@ -235,7 +259,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
                         list.add("\n");
                         c = 0;
                     }
-                }
+                }*/
 
                 Msg.sendRaw(admin, list);
             }
@@ -322,7 +346,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
             for(Player p : game.world.getPlayers())
             {
                 game.leave(p);
-                p.performCommand(getConfig().getString("general.discardCommand"));
+                p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
 
                 if(p.getGameMode() == GameMode.ADVENTURE || p.getGameMode() == GameMode.SPECTATOR)
                     p.setGameMode(GameMode.SURVIVAL);
@@ -385,7 +409,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         {
             for(Player p : game.world.getPlayers())
             {
-                p.performCommand(getConfig().getString("general.discardCommand"));
+                p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
 
                 if(p.getGameMode() == GameMode.ADVENTURE || p.getGameMode() == GameMode.SPECTATOR)
                     p.setGameMode(GameMode.SURVIVAL);

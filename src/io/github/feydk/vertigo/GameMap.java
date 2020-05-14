@@ -19,19 +19,11 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import lombok.Value;
-
 public class GameMap
 {
-    @Value
-    static final class Point2D {
-        final int x;
-        final int z;
-    }
-
     private Set<Point2D> processedChunks = new HashSet<>();
     private List<Location> spawnLocations = new ArrayList<>();
-    //private List<String> credits = new ArrayList<>();
+    private List<String> credits = new ArrayList<>();
     private List<ItemStack> blocks = new ArrayList<>();
     private List<Location> jumpSpots = new ArrayList<>();
     private List<Block> skulls = new ArrayList<>();
@@ -158,7 +150,7 @@ public class GameMap
         }
     }
 
-    /*String getCredits()
+    String getCredits()
     {
         if(credits.size() > 0)
         {
@@ -187,7 +179,7 @@ public class GameMap
         }
 
         return "";
-    }*/
+    }
 
     /*public void animateBlocks(ColorBlock currentColor)
       {
@@ -472,13 +464,13 @@ public class GameMap
                     }
                     else if(firstLine.equals("[credits]"))
                     {
-                        /*for(int i = 1; i < 4; ++i)
+                        for(int i = 1; i < 4; ++i)
                         {
                             String credit = ((Sign) state).getLine(i);
 
                             if(credit != null && !credit.isEmpty())
                                 credits.add(credit);
-                        }*/
+                        }
 
                         state.getBlock().setType(Material.AIR);
 
@@ -517,6 +509,18 @@ public class GameMap
                     }
                 }
             }
+        }
+    }
+
+    private static class Point2D
+    {
+        int X;
+        int Z;
+
+        Point2D(int x, int z)
+        {
+            X = x;
+            Z = z;
         }
     }
 }

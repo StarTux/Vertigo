@@ -195,6 +195,29 @@ class VertigoGame
 
         player.teleport(vp.getSpawnLocation());
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
+
+        BukkitRunnable task = new BukkitRunnable()
+        {
+            private int count = 0;
+
+            @Override
+            public void run()
+            {
+                if(shutdown)
+                    this.cancel();
+
+                player.sendActionBar("Welcome to Vertigo! This map was created by " + ChatColor.AQUA + map.getCredits());
+                count++;
+
+                if(count > 3)
+                {
+                    player.sendActionBar(" ");
+                    this.cancel();
+                }
+            }
+        };
+
+        task.runTaskTimer(loader, 0, 40);
     }
 
     void leave(Player player)
@@ -381,7 +404,7 @@ class VertigoGame
             jumperTicks++;
 
             // 10 seconds to jump.
-            long total = 30 * 20; // TODO: 10
+            long total = 10 * 20;
 
             if(jumperTicks >= total + 20) // 1 second of forgiveness
             {

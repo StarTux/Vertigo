@@ -3,11 +3,34 @@ general:
   # In other words, should be a high enough value to contain the entire map.
   chunkRadius: 3
   # Duration of COUNTDOWN_TO_START stage.
-  countdownToStartDuration: 10
+  countdownToStartDuration: 20
   # Duration of the END stage. Ie how long the winner name should be flashed.
   endDuration: 30
   # Chance of a ring appearing in each round.
   ringChance: 50
-  # When games are discarded, perform this command for remaining players in the world.
-  discardCommand: 'spawn' 
-maps: [ BoneCrusher, Bridge, coffee, DesertJump, Doghouse, DuckVertigo, Forgotten, GottaCatchThemAll, LoveHurts, Memories, njvertigo, Oceanical, rekktigo, ScaryForest_the_end, Slime, Splash, TempleFall, Terrace, TheLost, towels, Verticoal, VertigoIsland, VertigoRuins ]
+# List of maps to pick from.
+maps: [
+[ world: 'BoneCrusher', name: 'Bone Crusher', author: 'killergames1' ],
+[ world: 'Bridge', name: 'Bridge', author: 'MenoMano' ],
+[ world: 'coffee', name: 'Coffee', author: 'AnnieH321' ],
+[ world: 'DesertJump', name: 'Desert Jump', author: 'KatelynnF' ],
+[ world: 'Doghouse', name: 'Doghouse', author: 'Oceanical' ],
+[ world: 'DuckVertigo', name: 'Duck', author: 'contagiousduck and John Cena' ],
+[ world: 'Forgotten', name: 'Forgotten', author: '(Unknown)' ],
+[ world: 'GottaCatchThemAll', name: 'Gotta Catch Them All', author: 'KalimFang' ],
+[ world: 'LoveHurts', name: 'Love Hurts', author: 'Koontzykinz, AnnieH321 and KalistaAnanke' ],
+[ world: 'Memories', name: 'Memories', author: 'Katantunoro' ],
+[ world: 'njvertigo', name: 'NJ', author: 'Njord' ],
+[ world: 'Oceanical', name: 'Oceanical', author: 'Oceanical' ],
+[ world: 'rekktigo', name: 'Rekktigo', author: 'MenoMano' ],
+[ world: 'ScaryForest_the_end', name: 'Scary Forest', author: 'Ten_of_Aces and killergames1' ],
+[ world: 'Slime', name: 'Slime', author: 'HappySapling' ],
+[ world: 'Splash', name: 'Splash (original map)', author: 'killergames1 and feydk' ],
+[ world: 'TempleFall', name: 'Temple Fall', author: 'TheLoneKing, killergames1 and StarTux' ],
+[ world: 'Terrace', name: 'Terrace', author: 'killergames1' ],
+[ world: 'TheLost', name: 'The Lost', author: 'HappySapling' ],
+[ world: 'towels', name: 'Towels', author: '(Unknown)' ],
+[ world: 'Verticoal', name: 'Verticoal', author: 'killergames1 and Black0ut1' ],
+[ world: 'VertigoIsland', name: 'Island', author: 'PaidMercenary' ],
+[ world: 'VertigoRuins', name: 'Ruins', author: 'PaidMercenary' ]
+]
