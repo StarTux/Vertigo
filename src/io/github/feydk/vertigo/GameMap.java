@@ -2,10 +2,8 @@ package io.github.feydk.vertigo;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -21,7 +19,6 @@ import org.bukkit.util.Vector;
 
 public class GameMap
 {
-    private Set<Point2D> processedChunks = new HashSet<>();
     private List<Location> spawnLocations = new ArrayList<>();
     private List<String> credits = new ArrayList<>();
     private List<ItemStack> blocks = new ArrayList<>();
@@ -365,13 +362,6 @@ public class GameMap
     // Searches a chunk for map configuration signs.
     private void findChunkSigns(int x, int z)
     {
-        Point2D cc = new Point2D(x, z);
-
-        if(processedChunks.contains(cc))
-            return;
-
-        processedChunks.add(cc);
-
         // Process the chunk.
         Chunk chunk = world.getChunkAt(x, z);
         chunk.load();
@@ -509,18 +499,6 @@ public class GameMap
                     }
                 }
             }
-        }
-    }
-
-    private static class Point2D
-    {
-        int X;
-        int Z;
-
-        Point2D(int x, int z)
-        {
-            X = x;
-            Z = z;
         }
     }
 }
