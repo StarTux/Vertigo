@@ -321,9 +321,9 @@ public final class VertigoLoader extends JavaPlugin implements Listener
             String worldName = "Vertigo_temp_" + RandomStringUtils.randomAlphabetic(10);
             YamlConfiguration config = YamlConfiguration.loadConfiguration(new File(getServer().getWorldContainer() + "/" + args[1] + "/config.yml"));
 
-            World org = loadWorld(args[1], config);
+            //World org = loadWorld(args[1], config);
 
-            File source = org.getWorldFolder();
+            File source = new File(getServer().getWorldContainer() + "/" + args[1]);
             File target = new File(getServer().getWorldContainer() + "/" + worldName);
 
             copyFileStructure(source, target);
