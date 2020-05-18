@@ -305,41 +305,25 @@ public final class VertigoLoader extends JavaPlugin implements Listener
                 int c = 0;
                 int perLine = 4;
 
-                for(Object o : Objects.requireNonNull(getConfig().getList("maps")))
+                for(String mapWorldName : getConfig().getStringList("maps"))
                 {
-                    if(o instanceof ArrayList)
-                    {
-                        @SuppressWarnings("unchecked")
-                        ArrayList<LinkedHashMap<String, String>> s = (ArrayList<LinkedHashMap<String, String>>) o;
+                    // Get nice map name.
+                    YamlConfiguration config = YamlConfiguration.loadConfiguration(new File( this.getDataFolder() + "/maps/" + mapWorldName + "/config.yml"));
 
-                        list.add(Msg.button(ChatColor.AQUA + s.get(1).get("name") + " " + ChatColor.GRAY + "✦ ", "/vertigoadmin load " + s.get(0).get("world"), "/vertigoadmin load " + s.get(0).get("world")));
-                        c++;
+                    String niceName = config.getString("map.name");
 
-                        //c += s.get(1).get("name").length() + 3;
+                    if(niceName == null)
+                        niceName = mapWorldName;
 
-                        if(c == perLine)
-                        {
-                            list.add("\n");
-                            c = 0;
-                        }
+                    list.add(Msg.button(ChatColor.AQUA + niceName + " " + ChatColor.GRAY + "✦ ", "/vertigoadmin load " + mapWorldName, "/vertigoadmin load " + mapWorldName));
+                    c++;
 
-                    }
-                }
-
-                /*List<String> maps = getConfig().getStringList("maps");
-
-                int c = 0;
-                for(String s : maps)
-                {
-                    list.add(Msg.button(ChatColor.AQUA + s + " " + ChatColor.GRAY + "✦ ", "/vertigoadmin load " + s, "/vertigoadmin load " + s));
-                    c += s.length() + 3;
-
-                    if(c >= 40)
+                    if(c == perLine)
                     {
                         list.add("\n");
                         c = 0;
                     }
-                }*/
+                }
 
                 Msg.sendRaw(admin, list);
             }

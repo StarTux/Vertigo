@@ -91,6 +91,7 @@ class VertigoGame
 
         shutdown = false;
         players.clear();
+        jumpers.clear();
         updateGamebar(0);
 
         scoreboard = new GameScoreboard(this);
