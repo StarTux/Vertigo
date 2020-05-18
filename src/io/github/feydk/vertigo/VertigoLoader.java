@@ -2,8 +2,9 @@ package io.github.feydk.vertigo;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.bukkit.*;
+import org.bukkit.World;
+import org.bukkit.WorldType;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -54,14 +55,28 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     }
 
     @EventHandler
-    public void onPlayerWorldChange(PlayerChangedWorldEvent e)
+    public void onPlayerWorldChange(PlayerChangedWorldEvent event)
     {
         if(game.world == null)
             return;
 
-        if(e.getFrom().getName().equals(game.world.getName()))
+        if(event.getFrom().getName().equals(game.world.getName()))
         {
-            Player player = e.getPlayer();
+            Player player = event.getPlayer();
+            game.leave(player);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event)
+    {
+        if(game.world == null)
+            return;
+
+        Player player = event.getPlayer();
+
+        if(player.getWorld().getName().equals(game.world.getName()))
+        {
             game.leave(player);
         }
     }
@@ -69,7 +84,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event)
     {
-        if(game.world == null)
+        if(game.world == null || game.state != VertigoGame.GameState.RUNNING)
             return;
 
         if(!(event.getEntity() instanceof Player))
@@ -89,7 +104,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event)
     {
-        if(game.world == null)
+        if(game.world == null || game.state != VertigoGame.GameState.RUNNING)
             return;
 
         Player player = event.getPlayer();
@@ -192,13 +207,78 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         {
             player.sendMessage("There is no Vertigo game going on right now.");
         }
-        else if(game.state == VertigoGame.GameState.READY)
+        else if(game.state == VertigoGame.GameState.READY || game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING || game.state == VertigoGame.GameState.ENDED)
         {
-            game.join(player, false);
-        }
-        else if(game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING)
-        {
-            game.join(player, true);
+            if(!game.hasPlayerJoined(player))
+            {
+                game.join(player, (game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING || game.state == VertigoGame.GameState.ENDED));
+            }
+            else
+            {
+                List<Object> list = new ArrayList<>();
+
+                list.add(ChatColor.GOLD + "=== Vertigo (");
+                list.add(Msg.button("" + ChatColor.YELLOW + ChatColor.UNDERLINE + "Map info" + ChatColor.GOLD + ")", ChatColor.GREEN + game.mapName + "\n" + ChatColor.WHITE + "Created by " + game.map.getCredits(), ""));
+                list.add(ChatColor.GOLD + " ===\n" + ChatColor.WHITE);
+
+                VertigoPlayer vp = game.findPlayer(player);
+
+                if(game.state == VertigoGame.GameState.READY)
+                {
+                    list.add("We're waiting for players to join.\n");
+
+                    if(vp != null && !vp.isPlaying && !vp.wasPlaying)
+                        list.add("You're " + ChatColor.YELLOW + "spectating.\n" + ChatColor.WHITE);
+                    else
+                        list.add("You've joined the game.\n");
+                }
+                else if(game.state == VertigoGame.GameState.COUNTDOWN_TO_START)
+                {
+                    list.add("The game is starting. Get ready!\n");
+
+                    if(vp != null && !vp.isPlaying && !vp.wasPlaying)
+                        list.add("You're " + ChatColor.YELLOW + "spectating. " + ChatColor.WHITE);
+
+                    if(vp != null && vp.isPlaying)
+                        list.add("You will jump as number " + ChatColor.GREEN + vp.order + ChatColor.WHITE + " of " + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players.\n");
+                    else
+                        list.add("" + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players are playing.\n");
+                }
+                else if(game.state == VertigoGame.GameState.RUNNING)
+                {
+                    if(vp != null && !vp.isPlaying && !vp.wasPlaying)
+                        list.add("You're " + ChatColor.YELLOW + "spectating. " + ChatColor.WHITE);
+                    else
+                        list.add("You've joined the game. ");
+
+                    if(vp != null && vp.isPlaying)
+                        list.add("You jump as number " + ChatColor.GREEN + vp.order + ChatColor.WHITE + " of " + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players.\n");
+                    else
+                        list.add("" + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players are playing.\n");
+                }
+                else if(game.state == VertigoGame.GameState.ENDED)
+                {
+                    list.add("The game is over! Final scores:\n");
+                }
+
+                for(VertigoPlayer vp_ : game.jumpers)
+                {
+                    if(vp_.getPlayer().getUniqueId().equals(player.getUniqueId()))
+                        list.add("" + ChatColor.AQUA + vp_.getPlayer().getName() + " (" + game.scoreboard.getScore(vp_.getPlayer()) + ") ");
+                    else
+                        list.add(ChatColor.DARK_AQUA + vp_.getPlayer().getName() + " (" + game.scoreboard.getScore(vp_.getPlayer()) + ") ");
+                }
+
+                list.add("\n");
+
+                for(VertigoPlayer vp_ : game.players)
+                {
+                    if(!vp_.isPlaying && !vp_.wasPlaying)
+                        list.add(Msg.button("" + ChatColor.GRAY + "(" + vp_.getPlayer().getName() + ") ", "Spectating", ""));
+                }
+
+                Msg.sendRaw(player, list);
+            }
         }
 
         return true;
@@ -319,18 +399,16 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         if(cmd.equalsIgnoreCase("load"))
         {
             String worldName = "Vertigo_temp_" + RandomStringUtils.randomAlphabetic(10);
-            YamlConfiguration config = YamlConfiguration.loadConfiguration(new File(getServer().getWorldContainer() + "/" + args[1] + "/config.yml"));
+            YamlConfiguration config = YamlConfiguration.loadConfiguration(new File( this.getDataFolder() + "/maps/" + args[1] + "/config.yml"));
 
-            //World org = loadWorld(args[1], config);
-
-            File source = new File(getServer().getWorldContainer() + "/" + args[1]);
+            File source = new File(this.getDataFolder() + "/maps/" + args[1]);
             File target = new File(getServer().getWorldContainer() + "/" + worldName);
 
             copyFileStructure(source, target);
 
             World gameWorld = loadWorld(worldName, config);
 
-            game.setWorld(gameWorld);
+            game.setWorld(gameWorld, config.getString("map.name"));
 
             if(game.setup(admin))
             {

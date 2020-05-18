@@ -25,11 +25,12 @@ class VertigoGame
     VertigoLoader loader;
     World world;
     GameMap map;
+    String mapName;
     GameState state = GameState.NONE;
+    List<VertigoPlayer> players = new ArrayList<>();
+    GameScoreboard scoreboard;
 
-    private GameScoreboard scoreboard;
     private BossBar gamebar;
-    private List<VertigoPlayer> players = new ArrayList<>();
 
     // Game loop stuff.
     private boolean shutdown;
@@ -39,11 +40,11 @@ class VertigoGame
     private int endDuration;
 
     // Stuff for keeping track of jumpers.
-    private List<VertigoPlayer> jumpers = new ArrayList<>();
+    List<VertigoPlayer> jumpers = new ArrayList<>();
     private int currentJumperIndex = 0;
     private long jumperTicks = 0;
     private boolean currentJumperHasJumped;
-    VertigoPlayer currentJumper;
+    private VertigoPlayer currentJumper;
     private boolean currentJumperPassedRing;
     private boolean moreThanOnePlayed;
     private String winnerName;
@@ -74,9 +75,10 @@ class VertigoGame
         endDuration = loader.getConfig().getInt("general.endDuration");
     }
 
-    void setWorld(World world)
+    void setWorld(World world, String mapName)
     {
         this.world = world;
+        this.mapName = mapName;
     }
 
     boolean setup(Player admin)
@@ -135,7 +137,7 @@ class VertigoGame
 
     void discard()
     {
-        setWorld(null);
+        setWorld(null, "");
         state = GameState.NONE;
 
         for(VertigoPlayer vp : players)
@@ -190,13 +192,18 @@ class VertigoGame
         vp.wasPlaying = vp.isPlaying;
         vp.getPlayer().setGameMode(GameMode.SPECTATOR);
 
+        if(vp.isPlaying)
+            jumpers.add(vp);
+
         player.removePotionEffect(PotionEffectType.LEVITATION);
         player.removePotionEffect(PotionEffectType.SLOW_FALLING);
 
         player.teleport(vp.getSpawnLocation());
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
 
-        BukkitRunnable task = new BukkitRunnable()
+        player.sendTitle("Welcome to Vertigo", ChatColor.YELLOW + "See /vertigo for game status and info", -1, -1, -1);
+
+        /*BukkitRunnable task = new BukkitRunnable()
         {
             private int count = 0;
 
@@ -217,7 +224,7 @@ class VertigoGame
             }
         };
 
-        task.runTaskTimer(loader, 0, 40);
+        task.runTaskTimer(loader, 0, 40);*/
     }
 
     void leave(Player player)
@@ -290,6 +297,13 @@ class VertigoGame
 
         // Check for disconnects.
         removeDisconnectedPlayers();
+
+        // Notify spectators very clearly at all times.
+        for(VertigoPlayer vp : players)
+        {
+            if(!vp.isPlaying && !vp.wasPlaying)
+                vp.getPlayer().sendActionBar("You're " + ChatColor.YELLOW + "spectating");
+        }
 
         if(state == GameState.RUNNING)
         {
@@ -429,6 +443,27 @@ class VertigoGame
             }
         }
 
+        // Let everyone else know when its their turn.
+        for(VertigoPlayer vp : jumpers)
+        {
+            if(currentJumper.equals(vp))
+                continue;
+
+            String msg = "You jump as number " + ChatColor.GREEN + vp.order + ". " + ChatColor.WHITE;
+            int diff = vp.order - (currentJumperIndex + 1);
+
+            if(diff == 1 || diff <= 0)
+            {
+                msg += "You're next!";
+            }
+            else
+            {
+                msg += " There are " + diff + " players in front of you.";
+            }
+
+            vp.getPlayer().sendActionBar(msg);
+        }
+
         /*if(roundCountdownTicks >= 0)
         {
             long ticksTmp = roundCountdownTicks;
@@ -467,7 +502,7 @@ class VertigoGame
         // Every 5 seconds, show/refresh the winner title announcement.
         if(timeLeft > 0 && (timeLeft % (20 * 5) == 0 || ticks == 1))
         {
-            if(winnerName != "")
+            if(!winnerName.equals(""))
                 sendTitleToAllPlayers(ChatColor.AQUA + winnerName, ChatColor.WHITE + "Wins the Game!");
             else
                 sendTitleToAllPlayers(ChatColor.AQUA + "Draw!", ChatColor.WHITE + "Nobody wins");
@@ -511,6 +546,13 @@ class VertigoGame
 
             Collections.shuffle(jumpers, new Random(System.currentTimeMillis()));
 
+            int i = 1;
+            for(VertigoPlayer vp : jumpers)
+            {
+                vp.order = i;
+                i++;
+            }
+
             currentJumperIndex = 0;
         }
         else if(newState == GameState.RUNNING)
@@ -519,7 +561,7 @@ class VertigoGame
         }
         else if(newState == GameState.ENDED)
         {
-            if(winnerName != "")
+            if(!winnerName.equals(""))
                 sendMsgToAllPlayers(chatPrefix + "&b" + winnerName + " wins the game!");
             else
                 sendMsgToAllPlayers( chatPrefix + "&bDraw! Nobody wins.");
@@ -686,10 +728,11 @@ class VertigoGame
         //String string = strings[r.nextInt(strings.length)];
 
 
-        sendActionBarToAllPlayers(msg);
+        //sendActionBarToAllPlayers(msg);
+        sendTitleToAllPlayers("", msg);
         playSoundForAllPlayers(Sound.ENTITY_PLAYER_BIG_FALL);
 
-        player.sendTitle("", "§4Splat!", -1, -1, -1);
+        //player.sendTitle("", "§4Splat!", -1, -1, -1);
 
         callNextJumper();
     }
@@ -715,7 +758,7 @@ class VertigoGame
         Location l = landingLocation.clone();
 
         // Find adjacent blocks to calculate score.
-        List<Block> adjacent = new ArrayList<Block>();
+        List<Block> adjacent = new ArrayList<>();
 
         adjacent.add(world.getBlockAt(l.add(1, 0, 0)));
         l = landingLocation.clone();
@@ -729,7 +772,7 @@ class VertigoGame
 
         for(Block block : adjacent)
         {
-            if(map.isBlock(block.getType()))
+            if(map.isBlock(block))
             {
                 adjacentBlocks++;
                 score++;
@@ -743,7 +786,8 @@ class VertigoGame
         }
 
         String msg = "§9Splash! §3" + player.getName() + " §6+" + score + "§7";
-        sendActionBarToAllPlayers(msg);
+        sendTitleToAllPlayers("", msg);
+        //sendActionBarToAllPlayers(msg);
 
         /*if(adjacentBlocks > 0)
         {
@@ -846,7 +890,7 @@ class VertigoGame
                 vp.isPlaying = false;
                 scoreboard.removePlayer(vp.getPlayer());
 
-                sendMsgToAllPlayers(chatPrefix + "§3" + vp.getPlayer().getName() + " §7was disqualified.");
+                sendMsgToAllPlayers(chatPrefix + "§3" + vp.getPlayer().getName() + " §7was disqualified for failing to make 3 jumps in time.");
             }
 
             vp.getPlayer().teleport(vp.getSpawnLocation());
@@ -892,7 +936,15 @@ class VertigoGame
     {
         if(state == GameState.READY)
         {
-            gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players..");
+            int count = 0;
+
+            for(VertigoPlayer vp : players)
+            {
+                if(vp.isPlaying)
+                    count++;
+            }
+
+            gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players. " + ChatColor.GOLD + count + ChatColor.WHITE + " joined so far.");
         }
         else if(state == GameState.COUNTDOWN_TO_START)
         {
@@ -900,13 +952,13 @@ class VertigoGame
         }
         else if(state == GameState.RUNNING)
         {
-            String t = ChatColor.BOLD + "Vertigo "; // + " Round: " + ChatColor.GOLD + roundNumber;
+            String t = ChatColor.BOLD + "Vertigo ";
 
             if(map.currentRingCenter != null)
                 t += ChatColor.GOLD + "" + ChatColor.BOLD + "◯ " + ChatColor.GOLD + "Golden ring ";
 
             if(currentJumper != null)
-                t += ChatColor.WHITE + "" + ChatColor.BOLD + "⇨ " + ChatColor.WHITE + "Current jumper: " + ChatColor.AQUA + currentJumper.getPlayer().getName();
+                t += "" + ChatColor.WHITE + ChatColor.BOLD + "⇨ " + ChatColor.WHITE + "Current jumper: " + ChatColor.AQUA + currentJumper.getPlayer().getName() + ChatColor.GRAY + " [" + (currentJumperIndex + 1) + "/" + jumpers.size() + "] ";
 
             gamebar.setTitle(t);
         }
@@ -914,7 +966,7 @@ class VertigoGame
         {
             String t = ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " - ";
 
-            if(winnerName != "")
+            if(!winnerName.equals(""))
                 t += "Winner: " + ChatColor.AQUA + winnerName;
             else
                 t += "It's a draw!";
@@ -937,13 +989,13 @@ class VertigoGame
         }
     }
 
-    private void sendActionBarToAllPlayers(String msg)
+    /*private void sendActionBarToAllPlayers(String msg)
     {
         for(VertigoPlayer vp : players)
         {
             vp.getPlayer().sendActionBar(msg);
         }
-    }
+    }*/
 
     private void sendTitleToAllPlayers(String title, String subtitle)
     {
@@ -974,7 +1026,7 @@ class VertigoGame
         return new Location(this.world, 255, 60, 255);
     }
 
-    private VertigoPlayer findPlayer(Player player)
+    VertigoPlayer findPlayer(Player player)
     {
         for(VertigoPlayer vp : players)
         {
@@ -983,6 +1035,11 @@ class VertigoGame
         }
 
         return null;
+    }
+
+    boolean hasPlayerJoined(Player player)
+    {
+        return findPlayer(player) != null;
     }
 
     private void findWinner()

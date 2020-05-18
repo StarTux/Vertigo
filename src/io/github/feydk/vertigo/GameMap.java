@@ -17,7 +17,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-public class GameMap
+class GameMap
 {
     private List<Location> spawnLocations = new ArrayList<>();
     private List<String> credits = new ArrayList<>();
@@ -197,13 +197,17 @@ public class GameMap
         return blocks.get(r.nextInt(blocks.size()));
     }
 
-    boolean isBlock(Material material)
+    boolean isBlock(Block block)
     {
+        Material material = block.getType();
+
         for(ItemStack item : blocks)
         {
             if(item.getType() == material)
             {
-                return true;
+                // Must have skull on top.
+                if(block.getRelative(BlockFace.UP).getType() == Material.PLAYER_HEAD)
+                    return true;
             }
         }
 
@@ -458,7 +462,7 @@ public class GameMap
                         {
                             String credit = ((Sign) state).getLine(i);
 
-                            if(credit != null && !credit.isEmpty())
+                            if(!credit.isEmpty())
                                 credits.add(credit);
                         }
 

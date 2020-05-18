@@ -19,7 +19,7 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
 
-public class GameScoreboard
+class GameScoreboard
 {
     private Objective objective = null;
     private Scoreboard board = null;
@@ -27,7 +27,7 @@ public class GameScoreboard
     private Team winnerTeam = null;
     private VertigoGame game;
 
-    public GameScoreboard(VertigoGame game)
+    GameScoreboard(VertigoGame game)
     {
         this.game = game;
         init();
@@ -147,6 +147,11 @@ public class GameScoreboard
                 board.resetScores(player.getName());
         }
     }*/
+
+    int getScore(Player player)
+    {
+        return objective.getScore(player.getName()).getScore();
+    }
 
     boolean isSomeoneLeadingBy(int lead, List<VertigoPlayer> players)
     {

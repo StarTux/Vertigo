@@ -13,6 +13,7 @@ class VertigoPlayer
     boolean isPlaying;
     boolean wasPlaying;
     int timeouts;
+    int order;
 
     Player getPlayer()
     {
