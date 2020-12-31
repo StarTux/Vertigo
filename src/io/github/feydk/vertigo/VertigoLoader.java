@@ -1,9 +1,13 @@
 package io.github.feydk.vertigo;
 
+import com.google.gson.Gson;
 import org.apache.commons.lang.RandomStringUtils;
 import org.bukkit.*;
 import org.bukkit.World;
 import org.bukkit.WorldType;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -28,20 +32,46 @@ public final class VertigoLoader extends JavaPlugin implements Listener
 
     private boolean map_loaded;
 
+    State state;
+    int ticksWaited;
+
+    protected BossBar gamebar;
+
     public void onEnable()
     {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
+
+        gamebar = getServer().createBossBar(ChatColor.BOLD + "Vertigo", BarColor.BLUE, BarStyle.SOLID);
+        gamebar.setProgress(0);
+        gamebar.setVisible(true);
 
         this.debug = true;
         this.game = new VertigoGame(this);
 
         getCommand("vertigo").setExecutor((a, b, c, d) -> onGameCommand(a, d));
         getCommand("vertigoadmin").setExecutor((a, b, c, d) -> onAdminCommand(a, d));
+
+        Bukkit.getScheduler().runTaskTimer(this, this::tick, 1L, 1L);
+
+        loadState();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            gamebar.addPlayer(player);
+        }
     }
 
     public void onDisable()
     {
+        saveState();
+
+        gamebar.removeAll();
+
+        if (map_loaded) {
+            discardWorld(game);
+            map_loaded = false;
+        }
+
         for(World w : getServer().getWorlds())
         {
             if(w.getWorldFolder().getName().startsWith("Vertigo_temp_"))
@@ -54,6 +84,16 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         }
     }
 
+    void loadState() {
+        File file = new File(getDataFolder(), "state.json");
+        state = Json.load(file, State.class, State::new);
+    }
+
+    void saveState() {
+        File file = new File(getDataFolder(), "state.json");
+        Json.save(file, state);
+    }        
+
     @EventHandler
     public void onPlayerWorldChange(PlayerChangedWorldEvent event)
     {
@@ -65,6 +105,12 @@ public final class VertigoLoader extends JavaPlugin implements Listener
             Player player = event.getPlayer();
             game.leave(player);
         }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        gamebar.addPlayer(player);
     }
 
     @EventHandler
@@ -410,8 +456,8 @@ public final class VertigoLoader extends JavaPlugin implements Listener
                 game.leave(p);
                 p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
 
-                if(p.getGameMode() == GameMode.ADVENTURE || p.getGameMode() == GameMode.SPECTATOR)
-                    p.setGameMode(GameMode.SURVIVAL);
+                if(p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
+                    p.setGameMode(GameMode.ADVENTURE);
             }
 
             File dir = game.world.getWorldFolder();
@@ -473,8 +519,8 @@ public final class VertigoLoader extends JavaPlugin implements Listener
             {
                 p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
 
-                if(p.getGameMode() == GameMode.ADVENTURE || p.getGameMode() == GameMode.SPECTATOR)
-                    p.setGameMode(GameMode.SURVIVAL);
+                if(p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
+                    p.setGameMode(GameMode.ADVENTURE);
             }
         }
         else if(cmd.equalsIgnoreCase("spectate"))
@@ -560,6 +606,96 @@ public final class VertigoLoader extends JavaPlugin implements Listener
             }
 
             path.delete();
+        }
+    }
+
+    void tick() {
+        List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
+        if (online.size() < 2) {
+            if (map_loaded) {
+                discardWorld(game);
+                map_loaded = false;
+            }
+            ticksWaited = 0;
+            gamebar.setTitle(ChatColor.DARK_RED + "Waiting for players");
+            gamebar.setProgress(0);
+            gamebar.setColor(BarColor.RED);
+            return;
+        }
+        if (map_loaded) {
+            if (game.state == VertigoGame.GameState.ENDED && game.stateTicks > 20L * 20L) {
+                nextWorld();
+            }
+        } else {
+            ticksWaited += 1;
+            int ticksToWait = 20 * 30;
+            if (ticksWaited >= ticksToWait) {
+                nextWorld();
+            } else {
+                double progress = (double) ticksWaited / (double) ticksToWait;
+                gamebar.setProgress(Math.max(0, Math.min(1, progress)));
+                gamebar.setColor(BarColor.BLUE);
+                gamebar.setTitle("Get ready...");
+            }
+        }
+    }
+
+    void nextWorld() {
+        if (state.worlds.isEmpty()) {
+            state.worlds.addAll(getConfig().getStringList("maps"));
+        }
+        String worldName = state.worlds.remove(state.worlds.size() - 1);
+        saveState();
+        VertigoGame oldGame = game;
+        game = loadWorld(worldName);
+        map_loaded = true;
+        discardWorld(oldGame);
+    }
+
+    VertigoGame loadWorld(String name) {
+        VertigoGame newGame = new VertigoGame(this);
+
+        String worldName = "Vertigo_temp_" + RandomStringUtils.randomAlphabetic(10);
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(new File( this.getDataFolder() + "/maps/" + name + "/config.yml"));
+
+        File source = new File(this.getDataFolder() + "/maps/" + name);
+        File target = new File(getServer().getWorldContainer() + "/" + worldName);
+
+        copyFileStructure(source, target);
+
+        World gameWorld = loadWorld(worldName, config);
+
+        newGame.setWorld(gameWorld, config.getString("map.name"));
+
+        if(newGame.setup(Bukkit.getConsoleSender())) {
+            newGame.ready(Bukkit.getConsoleSender());
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                newGame.join(player, false); // Player, isSpectator
+            }
+            newGame.start();
+        } else {
+            newGame.discard();
+        }
+        return newGame;
+    }
+
+    void discardWorld(VertigoGame theGame) {
+        theGame.shutdown();
+        if (theGame.world == null) return;
+        for(Player p : theGame.world.getPlayers()) {
+            theGame.leave(p);
+            p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
+            if(p.getGameMode() != GameMode.ADVENTURE) {
+                p.setGameMode(GameMode.ADVENTURE);
+            }
+        }
+        File dir = theGame.world.getWorldFolder();
+        boolean unloaded = getServer().unloadWorld(theGame.world, false);
+        if(unloaded) {
+            deleteFiles(dir);
+            theGame.discard();
+        } else {
+            getLogger().warning("The game world could not be unloaded: " + game.mapName);
         }
     }
 }

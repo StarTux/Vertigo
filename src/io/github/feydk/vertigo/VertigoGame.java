@@ -5,9 +5,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.Rotatable;
-import org.bukkit.boss.BarColor;
-import org.bukkit.boss.BarStyle;
-import org.bukkit.boss.BossBar;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -30,12 +28,10 @@ class VertigoGame
     List<VertigoPlayer> players = new ArrayList<>();
     GameScoreboard scoreboard;
 
-    private BossBar gamebar;
-
     // Game loop stuff.
     private boolean shutdown;
     private long ticks;
-    private long stateTicks;
+    protected long stateTicks;
     private int countdownToStartDuration;
     private int endDuration;
 
@@ -48,6 +44,8 @@ class VertigoGame
     private boolean currentJumperPassedRing;
     private boolean moreThanOnePlayed;
     private String winnerName;
+
+    BukkitRunnable task;
 
     // Stuff for keeping track of rounds.
     //private int roundNumber = 0;
@@ -67,10 +65,6 @@ class VertigoGame
     {
         this.loader = loader;
 
-        gamebar = loader.getServer().createBossBar(ChatColor.BOLD + "Vertigo", BarColor.BLUE, BarStyle.SOLID);
-        gamebar.setProgress(0);
-        gamebar.setVisible(false);
-
         countdownToStartDuration = loader.getConfig().getInt("general.countdownToStartDuration");
         endDuration = loader.getConfig().getInt("general.endDuration");
     }
@@ -81,7 +75,7 @@ class VertigoGame
         this.mapName = mapName;
     }
 
-    boolean setup(Player admin)
+    boolean setup(CommandSender admin)
     {
         if(world == null)
         {
@@ -147,7 +141,7 @@ class VertigoGame
         }
     }
 
-    void ready(Player admin)
+    void ready(CommandSender admin)
     {
         if(state != GameState.INIT)
         {
@@ -158,7 +152,7 @@ class VertigoGame
         state = GameState.READY;
         updateGamebar(0);
 
-        BukkitRunnable task = new BukkitRunnable()
+        task = new BukkitRunnable()
         {
             @Override
             public void run()
@@ -183,7 +177,6 @@ class VertigoGame
             players.add(vp);
 
             scoreboard.addPlayer(player);
-            gamebar.addPlayer(player);
 
             if(vp.isPlaying)
                 scoreboard.setPlayerScore(player, 0);
@@ -199,6 +192,7 @@ class VertigoGame
         player.removePotionEffect(PotionEffectType.LEVITATION);
         player.removePotionEffect(PotionEffectType.SLOW_FALLING);
 
+        player.setGameMode(GameMode.SPECTATOR);
         player.teleport(vp.getSpawnLocation());
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
 
@@ -232,10 +226,10 @@ class VertigoGame
     {
         if(player != null)
         {
-            if(player.getGameMode() == GameMode.SPECTATOR || player.getGameMode() == GameMode.ADVENTURE)
-                player.setGameMode(GameMode.SURVIVAL);
+            if(player.getGameMode() != GameMode.ADVENTURE) {
+                player.setGameMode(GameMode.ADVENTURE);
+            }
 
-            gamebar.removePlayer(player);
             scoreboard.removePlayer(player);
             players.remove(player);
         }
@@ -283,8 +277,16 @@ class VertigoGame
 
     void shutdown()
     {
+        if (task != null) {
+            try {
+                task.cancel();
+            } catch (IllegalStateException ise) { }
+            task = null;
+        }
         shutdown = true;
-        scoreboard.reset();
+        if (scoreboard != null) {
+            scoreboard.reset();
+        }
     }
 
     private void onTick()
@@ -945,11 +947,11 @@ class VertigoGame
                     count++;
             }
 
-            gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players. " + ChatColor.GOLD + count + ChatColor.WHITE + " joined so far.");
+            loader.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players. " + ChatColor.GOLD + count + ChatColor.WHITE + " joined so far.");
         }
         else if(state == GameState.COUNTDOWN_TO_START)
         {
-            gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " starting..");
+            loader.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " starting..");
         }
         else if(state == GameState.RUNNING)
         {
@@ -961,7 +963,7 @@ class VertigoGame
             if(currentJumper != null)
                 t += "" + ChatColor.WHITE + ChatColor.BOLD + "⇨ " + ChatColor.WHITE + "Current jumper: " + ChatColor.AQUA + currentJumper.getPlayer().getName() + ChatColor.GRAY + " [" + (currentJumperIndex + 1) + "/" + jumpers.size() + "] ";
 
-            gamebar.setTitle(t);
+            loader.gamebar.setTitle(t);
         }
         else if(state == GameState.ENDED)
         {
@@ -972,14 +974,13 @@ class VertigoGame
             else
                 t += "It's a draw!";
 
-            gamebar.setTitle(t);
+            loader.gamebar.setTitle(t);
         }
 
         if(Double.isNaN(progress))
             progress = 0;
 
-        gamebar.setProgress(progress);
-        gamebar.setVisible(true);
+        loader.gamebar.setProgress(progress);
     }
 
     private void sendMsgToAllPlayers(String msg)
@@ -1024,7 +1025,7 @@ class VertigoGame
 
     private Location getSpawnLocation()
     {
-        return new Location(this.world, 255, 60, 255);
+        return world.getSpawnLocation();
     }
 
     VertigoPlayer findPlayer(Player player)
