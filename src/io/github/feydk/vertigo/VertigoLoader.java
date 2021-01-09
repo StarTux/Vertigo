@@ -19,6 +19,7 @@ import org.bukkit.event.entity.EntityToggleGlideEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 
 import java.io.*;
 import java.util.*;
@@ -108,9 +109,23 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     }
 
     @EventHandler
+    public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
+        if (game != null && game.world != null) {
+            event.setSpawnLocation(game.getSpawnLocation());
+        } else {
+            event.setSpawnLocation(Bukkit.getWorlds().get(0).getSpawnLocation());
+        }
+    }
+
+    @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         gamebar.addPlayer(player);
+        if (game != null && game.world != null) {
+            player.setGameMode(GameMode.SPECTATOR);
+        } else {
+            player.setGameMode(GameMode.ADVENTURE);
+        }
     }
 
     @EventHandler

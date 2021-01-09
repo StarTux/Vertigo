@@ -1023,7 +1023,7 @@ class VertigoGame
         }
     }
 
-    private Location getSpawnLocation()
+    public Location getSpawnLocation()
     {
         return world.getSpawnLocation();
     }
