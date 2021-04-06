@@ -323,27 +323,27 @@ class GameMap
             if(b1.getX() >= b2.getX())
             {
                 minX = b2.getX();
-                maxX = b1.getX();
+                maxX = b1.getX() + 1.0;
             }
             else
             {
                 minX = b1.getX();
-                maxX = b2.getX();
+                maxX = b2.getX() + 1.0;
             }
 
             //minY = b2.getY();
             //minY = b1.getY();
-            maxY = Math.max(b1.getY(), b2.getY());
+            maxY = Math.max(b1.getY(), b2.getY()) + 1.0;
 
             if(b1.getZ() >= b2.getZ())
             {
                 minZ = b2.getZ();
-                maxZ = b1.getZ();
+                maxZ = b1.getZ() + 1.0;
             }
             else
             {
                 minZ = b1.getZ();
-                maxZ = b2.getZ();
+                maxZ = b2.getZ() + 1.0;
             }
 
             //System.out.println("X: " + minX + ", " + maxX);
@@ -354,7 +354,8 @@ class GameMap
         {
             if(game.loader.debug)
             {
-                game.loader.getLogger().warning("Not enough [BOUNDARY] signs. Must have exactly two.");
+                game.loader.getLogger().warning("Not enough [BOUNDARY] signs: " + boundaries.size()
+                                                +  ". Must have exactly two.");
             }
 
             return false;
@@ -450,7 +451,8 @@ class GameMap
                     // Boundaries.
                     else if(firstLine.equals("[boundary]"))
                     {
-                        Location location = attached.getLocation();
+                        Location location = sign_block.getLocation();
+                        System.out.println("[boundary]: " + location);
                         boundaries.add(location);
 
                         state.getBlock().setType(Material.AIR);

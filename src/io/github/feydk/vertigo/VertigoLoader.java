@@ -443,24 +443,8 @@ public final class VertigoLoader extends JavaPlugin implements Listener
 
         if(cmd.equalsIgnoreCase("load"))
         {
-            String worldName = "Vertigo_temp_" + RandomStringUtils.randomAlphabetic(10);
-            YamlConfiguration config = YamlConfiguration.loadConfiguration(new File( this.getDataFolder() + "/maps/" + args[1] + "/config.yml"));
-
-            File source = new File(this.getDataFolder() + "/maps/" + args[1]);
-            File target = new File(getServer().getWorldContainer() + "/" + worldName);
-
-            copyFileStructure(source, target);
-
-            World gameWorld = loadWorld(worldName, config);
-
-            game.setWorld(gameWorld, config.getString("map.name"));
-
-            if(game.setup(admin))
-            {
-                map_loaded = true;
-                admin.teleport(game.map.dealSpawnLocation());
-                admin.performCommand("vertigoadmin");
-            }
+            sender.sendMessage("Loading world: " + args[1]);
+            loadAndPlayWorld(args[1]);
         }
         else if(cmd.equalsIgnoreCase("discard"))
         {
@@ -661,6 +645,10 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         }
         String worldName = state.worlds.remove(state.worlds.size() - 1);
         saveState();
+        loadAndPlayWorld(worldName);
+    }
+
+    void loadAndPlayWorld(String worldName) {
         VertigoGame oldGame = game;
         game = loadWorld(worldName);
         map_loaded = true;
