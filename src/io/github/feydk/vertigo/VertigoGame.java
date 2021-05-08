@@ -45,8 +45,6 @@ class VertigoGame
     private boolean moreThanOnePlayed;
     private String winnerName;
 
-    BukkitRunnable task;
-
     // Stuff for keeping track of rounds.
     //private int roundNumber = 0;
     //private int roundCountdownTicks = -1;
@@ -151,20 +149,6 @@ class VertigoGame
 
         state = GameState.READY;
         updateGamebar(0);
-
-        task = new BukkitRunnable()
-        {
-            @Override
-            public void run()
-            {
-                if(shutdown)
-                    this.cancel();
-
-                onTick();
-            }
-        };
-
-        task.runTaskTimer(loader, 1, 1);
     }
 
     void join(Player player, boolean spectator)
@@ -277,19 +261,13 @@ class VertigoGame
 
     void shutdown()
     {
-        if (task != null) {
-            try {
-                task.cancel();
-            } catch (IllegalStateException ise) { }
-            task = null;
-        }
         shutdown = true;
         if (scoreboard != null) {
             scoreboard.reset();
         }
     }
 
-    private void onTick()
+    protected void onTick()
     {
         ticks++;
 

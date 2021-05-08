@@ -624,6 +624,8 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         if (map_loaded) {
             if (game.state == VertigoGame.GameState.ENDED && game.stateTicks > 20L * 20L) {
                 nextWorld();
+            } else {
+                game.onTick();
             }
         } else {
             ticksWaited += 1;
