@@ -529,7 +529,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         else if(cmd.equalsIgnoreCase("event"))
         {
             if (args.length > 2) return false;
-            if (args.length == 0) {
+            if (args.length == 1) {
                 sender.sendMessage(ChatColor.YELLOW + "Event mode: " + state.event);
                 return true;
             }
