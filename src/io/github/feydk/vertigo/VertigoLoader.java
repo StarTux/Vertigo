@@ -526,6 +526,26 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         {
             game.join(admin, true);
         }
+        else if(cmd.equalsIgnoreCase("event"))
+        {
+            if (args.length > 2) return false;
+            if (args.length == 0) {
+                sender.sendMessage(ChatColor.YELLOW + "Event mode: " + state.event);
+                return true;
+            }
+            boolean newValue;
+            try {
+                newValue = Boolean.parseBoolean(args[1]);
+            } catch (IllegalStateException iae) {
+                sender.sendMessage("Invalid event mode: " + args[1]);
+                return true;
+            }
+            state.event = newValue;
+            saveState();
+            sender.sendMessage(ChatColor.YELLOW + "Event mode: " + state.event);
+        } else {
+            return false;
+        }
 
         return true;
     }

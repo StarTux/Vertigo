@@ -27,4 +27,5 @@ commands:
       /vertigoadmin discard - Discards game and world
       /vertigoadmin reset - Reset the game
       /vertigoadmin kickplayers - Kick all remaining players
+      /vertigoadmin event true|false - Set event mode
 permissions: {}

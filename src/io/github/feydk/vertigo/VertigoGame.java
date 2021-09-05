@@ -181,7 +181,9 @@ class VertigoGame
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
 
         player.sendTitle("Welcome to Vertigo", "", -1, -1, -1);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + player.getName());
+        if (loader.state.event) {
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + player.getName());
+        }
 
         /*BukkitRunnable task = new BukkitRunnable()
         {
@@ -543,10 +545,14 @@ class VertigoGame
         }
         else if(newState == GameState.ENDED)
         {
-            if(!winnerName.equals(""))
+            if (!winnerName.equals("")) {
                 sendMsgToAllPlayers(chatPrefix + "&b" + winnerName + " wins the game!");
-            else
+                if (loader.state.event) {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winnerName + " Splash");
+                }
+            } else {
                 sendMsgToAllPlayers( chatPrefix + "&bDraw! Nobody wins.");
+            }
 
             playSoundForAllPlayers(Sound.UI_TOAST_CHALLENGE_COMPLETE);
 

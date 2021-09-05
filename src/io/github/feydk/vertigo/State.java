@@ -5,4 +5,5 @@ import java.util.List;
 
 public final class State {
     List<String> worlds = new ArrayList<>();
+    boolean event;
 }
