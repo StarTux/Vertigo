@@ -436,7 +436,7 @@ class VertigoGame
             String msg = "You jump as number " + ChatColor.GREEN + vp.order + ". " + ChatColor.WHITE;
             int diff = vp.order - (currentJumperIndex + 1);
 
-            if(diff == 1 || diff <= 0)
+            if(diff == 1 || diff == 0)
             {
                 msg += "You're next!";
             }
@@ -584,7 +584,7 @@ class VertigoGame
         if(map.spawnRing())
         {
             playSoundForAllPlayers(Sound.BLOCK_BEACON_ACTIVATE);
-            //sendMsgToAllPlayers(chatPrefix + "§fA §6golden ring §fhas appeared. Jump through it to earn bonus points!");
+            sendMsgToAllPlayers(chatPrefix + "§fA §6golden ring §fhas appeared. Jump through it to earn bonus points!");
         }
 
         currentJumperIndex = 0;
@@ -777,22 +777,22 @@ class VertigoGame
         sendTitleToAllPlayers("", msg);
         //sendActionBarToAllPlayers(msg);
 
-        /*if(adjacentBlocks > 0)
-        {
-            msg += " (1 + adjacent blocks: " + adjacentBlocks;
+        if(adjacentBlocks > 0)
+            {
+                msg += " (1 + adjacent blocks: " + adjacentBlocks;
 
-            if(currentJumperPassedRing)
-                msg += ", golden ring: 3";
+                if(currentJumperPassedRing)
+                    msg += ", golden ring: 3";
 
-            msg += ")";
-        }
+                msg += ")";
+            }
         else
-        {
-            if(currentJumperPassedRing)
-                msg += " (1 + golden ring: 3)";
-        }*/
+            {
+                if(currentJumperPassedRing)
+                    msg += " (1 + golden ring: 3)";
+            }
 
-        //sendMsgToAllPlayers(msg);
+        sendMsgToAllPlayers(msg);
 
         if(currentJumperPassedRing)
             playSoundForAllPlayers(Sound.ENTITY_PLAYER_LEVELUP);
@@ -858,11 +858,11 @@ class VertigoGame
     {
         vp.getPlayer().sendActionBar("");
 
-        /*Random r = new Random(System.currentTimeMillis());
+        Random r = new Random(System.currentTimeMillis());
         String[] strings = { "was too afraid to jump.", "chickened out.", "couldn't overcome their acrophobia.", "had a bad case of vertigo." };
         String string = strings[r.nextInt(strings.length)];
 
-        sendMsgToAllPlayers(chatPrefix + "§3" + vp.getPlayer().getName() + " §c" + string);*/
+        sendMsgToAllPlayers(chatPrefix + "§3" + vp.getPlayer().getName() + " §c" + string);
 
         currentJumper = null;
 
