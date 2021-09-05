@@ -210,10 +210,10 @@ class VertigoGame
     {
         if(player != null)
         {
-            if(player.getGameMode() != GameMode.ADVENTURE) {
+            /*if(player.getGameMode() != GameMode.ADVENTURE) {
                 player.setGameMode(GameMode.ADVENTURE);
             }
-
+            */
             scoreboard.removePlayer(player);
             players.remove(player);
         }
