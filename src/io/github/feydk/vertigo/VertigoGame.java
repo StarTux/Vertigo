@@ -180,7 +180,8 @@ class VertigoGame
         player.teleport(vp.getSpawnLocation());
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
 
-        player.sendTitle("Welcome to Vertigo", ChatColor.YELLOW + "See /vertigo for game status and info", -1, -1, -1);
+        player.sendTitle("Welcome to Vertigo", "", -1, -1, -1);
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + player.getName());
 
         /*BukkitRunnable task = new BukkitRunnable()
         {
