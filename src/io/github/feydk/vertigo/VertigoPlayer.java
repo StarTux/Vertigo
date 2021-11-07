@@ -30,20 +30,22 @@ class VertigoPlayer {
 
     // Set player as participant.
     void setJumper() {
-        getPlayer().setGameMode(GameMode.ADVENTURE);
+        Player player = getPlayer();
+        if (player != null) player.setGameMode(GameMode.ADVENTURE);
     }
 
     // Set player as spectator.
     void setSpectator() {
-        getPlayer().setGameMode(GameMode.SPECTATOR);
+        Player player = getPlayer();
+        if (player != null) player.setGameMode(GameMode.SPECTATOR);
         //player.setAllowFlight(true);
         //player.setFlying(true);
     }
 
     Location getSpawnLocation() {
-        if(spawnLocation == null)
+        if(spawnLocation == null) {
             spawnLocation = game.map.dealSpawnLocation();
-
+        }
         return spawnLocation;
     }
 }

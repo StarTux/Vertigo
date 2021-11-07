@@ -445,17 +445,13 @@ public final class VertigoLoader extends JavaPlugin implements Listener
 
         String cmd = args[0];
 
-        if(cmd.equalsIgnoreCase("load"))
-        {
+        if(cmd.equalsIgnoreCase("load")) {
             sender.sendMessage("Loading world: " + args[1]);
             loadAndPlayWorld(args[1]);
-        }
-        else if(cmd.equalsIgnoreCase("discard"))
-        {
+        } else if(cmd.equalsIgnoreCase("discard")) {
             game.shutdown();
 
-            for(Player p : game.world.getPlayers())
-            {
+            for(Player p : game.world.getPlayers()) {
                 game.leave(p);
                 p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
 
@@ -652,7 +648,11 @@ public final class VertigoLoader extends JavaPlugin implements Listener
                 game.onTick();
             }
         } else {
-            ticksWaited += 1;
+            if (!state.event) {
+                ticksWaited += 1;
+            } else {
+                ticksWaited = 0;
+            }
             int ticksToWait = 20 * 30;
             if (ticksWaited >= ticksToWait) {
                 nextWorld();
@@ -744,18 +744,19 @@ public final class VertigoLoader extends JavaPlugin implements Listener
             if (!vertigoPlayer.isPlaying && !vertigoPlayer.wasPlaying) {
                 lines.add(Component.text("You're spectating!", NamedTextColor.YELLOW));
             }
-            if (vertigoPlayer.isPlaying) {
+            if (vertigoPlayer.isPlaying && vertigoPlayer.order > 0) {
                 lines.add(Component.text("You jump as #" + vertigoPlayer.order, NamedTextColor.GRAY));
             }
         }
         for (VertigoPlayer vp : players) {
             Player player = vp.getPlayer();
-            Component name = player != null ? player.displayName() : Component.text(player.getName());
+            Component name = player != null ? player.displayName() : Component.text(vp.name);
             boolean jumping = game.currentJumper == vp;
             lines.add(Component.join(JoinConfiguration.separator(Component.space()),
                                      (jumping
                                       ? Component.text("\u21E8" + vp.score, NamedTextColor.RED)
                                       : Component.text(vp.score, NamedTextColor.AQUA)),
+                                     Component.text(vp.order, NamedTextColor.DARK_GRAY),
                                      name));
         }
         if (lines.isEmpty()) return;
