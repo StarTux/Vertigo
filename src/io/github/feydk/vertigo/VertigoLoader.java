@@ -1,6 +1,10 @@
 package io.github.feydk.vertigo;
 
-import com.google.gson.Gson;
+import com.cavetale.sidebar.PlayerSidebarEvent;
+import com.cavetale.sidebar.Priority;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.commons.lang.RandomStringUtils;
 import org.bukkit.*;
 import org.bukkit.World;
@@ -325,9 +329,9 @@ public final class VertigoLoader extends JavaPlugin implements Listener
                 for(VertigoPlayer vp_ : game.jumpers)
                 {
                     if(vp_.getPlayer().getUniqueId().equals(player.getUniqueId()))
-                        list.add("" + ChatColor.AQUA + vp_.getPlayer().getName() + " (" + game.scoreboard.getScore(vp_.getPlayer()) + ") ");
+                        list.add("" + ChatColor.AQUA + vp_.getPlayer().getName() + " (" + vp_.score + ") ");
                     else
-                        list.add(ChatColor.DARK_AQUA + vp_.getPlayer().getName() + " (" + game.scoreboard.getScore(vp_.getPlayer()) + ") ");
+                        list.add(ChatColor.DARK_AQUA + vp_.getPlayer().getName() + " (" + vp_.score + ") ");
                 }
 
                 list.add("\n");
@@ -722,5 +726,39 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         } else {
             getLogger().warning("The game world could not be unloaded: " + game.mapName);
         }
+    }
+
+    @EventHandler
+    protected void onPlayerSidebar(PlayerSidebarEvent event) {
+        if (game == null || game.shutdown) return;
+        List<VertigoPlayer> players = new ArrayList<>();
+        for (VertigoPlayer vp : game.players) {
+            if (!vp.isPlaying) continue;
+            players.add(vp);
+        }
+        Collections.sort(players, (a, b) -> Integer.compare(b.score, a.score));
+        List<Component> lines = new ArrayList<>();
+        // Notify spectators very clearly at all times.
+        VertigoPlayer vertigoPlayer = game.findPlayer(event.getPlayer());
+        if (vertigoPlayer != null) {
+            if (!vertigoPlayer.isPlaying && !vertigoPlayer.wasPlaying) {
+                lines.add(Component.text("You're spectating!", NamedTextColor.YELLOW));
+            }
+            if (vertigoPlayer.isPlaying) {
+                lines.add(Component.text("You jump as #" + vertigoPlayer.order, NamedTextColor.GRAY));
+            }
+        }
+        for (VertigoPlayer vp : players) {
+            Player player = vp.getPlayer();
+            Component name = player != null ? player.displayName() : Component.text(player.getName());
+            boolean jumping = game.currentJumper == vp;
+            lines.add(Component.join(JoinConfiguration.separator(Component.space()),
+                                     (jumping
+                                      ? Component.text("\u21E8" + vp.score, NamedTextColor.RED)
+                                      : Component.text(vp.score, NamedTextColor.AQUA)),
+                                     name));
+        }
+        if (lines.isEmpty()) return;
+        event.add(this, Priority.HIGHEST, lines);
     }
 }

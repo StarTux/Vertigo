@@ -5,7 +5,7 @@ version: 1.0
 api-version: 1.15
 website: https://cavetale.com
 main: io.github.feydk.vertigo.VertigoLoader
-depend: []
+depend: [Title, Sidebar]
 softdepend: []
 commands:
   vertigo:
