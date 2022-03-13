@@ -493,7 +493,7 @@ class VertigoGame
                 if (!winnerName.equals("")) {
                     sendMsgToAllPlayers(chatPrefix + "&b" + winnerName + " wins the game!");
                     if (loader.state.event) {
-                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winnerName + " Splash Jumper");
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winnerName + " Splash Jumper WaterBucket");
                     }
                 } else {
                     sendMsgToAllPlayers( chatPrefix + "&bDraw! Nobody wins.");
