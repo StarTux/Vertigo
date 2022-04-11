@@ -28,8 +28,7 @@ import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 import java.io.*;
 import java.util.*;
 
-public final class VertigoLoader extends JavaPlugin implements Listener
-{
+public final class VertigoLoader extends JavaPlugin implements Listener {
     boolean debug;
 
     private VertigoGame game;
@@ -42,8 +41,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
 
     protected BossBar gamebar;
 
-    public void onEnable()
-    {
+    public void onEnable() {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
 
@@ -66,25 +64,19 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         }
     }
 
-    public void onDisable()
-    {
+    public void onDisable() {
         saveState();
-
         gamebar.removeAll();
-
         if (map_loaded) {
             discardWorld(game);
             map_loaded = false;
         }
-
-        for(World w : getServer().getWorlds())
-        {
-            if(w.getWorldFolder().getName().startsWith("Vertigo_temp_"))
-            {
+        for(World w : getServer().getWorlds()) {
+            if (w.getWorldFolder().getName().startsWith("Vertigo_temp_")) {
                 boolean unloaded = getServer().unloadWorld(w, false);
-
-                if(unloaded)
+                if (unloaded) {
                     deleteFiles(w.getWorldFolder());
+                }
             }
         }
     }
@@ -102,10 +94,10 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     @EventHandler
     public void onPlayerWorldChange(PlayerChangedWorldEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
-        if(event.getFrom().getName().equals(game.world.getName()))
+        if (event.getFrom().getName().equals(game.world.getName()))
         {
             Player player = event.getPlayer();
             game.leave(player);
@@ -135,12 +127,12 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
         Player player = event.getPlayer();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
         {
             game.leave(player);
         }
@@ -149,15 +141,15 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event)
     {
-        if(game.world == null || game.state != VertigoGame.GameState.RUNNING)
+        if (game.world == null || game.state != VertigoGame.GameState.RUNNING)
             return;
 
-        if(!(event.getEntity() instanceof Player))
+        if (!(event.getEntity() instanceof Player))
             return;
 
         Player player = (Player)event.getEntity();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
         {
             event.setCancelled(true);
 
@@ -169,12 +161,12 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event)
     {
-        if(game.world == null || game.state != VertigoGame.GameState.RUNNING)
+        if (game.world == null || game.state != VertigoGame.GameState.RUNNING)
             return;
 
         Player player = event.getPlayer();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
         {
             game.playerMove(player, event);
         }
@@ -183,98 +175,98 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     @EventHandler
     public void onFoodLevelChange(FoodLevelChangeEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
-        if(!(event.getEntity() instanceof Player))
+        if (!(event.getEntity() instanceof Player))
             return;
 
         Player player = (Player)event.getEntity();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
             event.setCancelled(true);
     }
 
     @EventHandler
     public void onDropItem(PlayerDropItemEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
         Player player = event.getPlayer();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
             event.setCancelled(true);
     }
 
     @EventHandler
     public void onPickupItem(EntityPickupItemEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
-        if(!(event.getEntity() instanceof Player))
+        if (!(event.getEntity() instanceof Player))
             return;
 
         Player player = (Player)event.getEntity();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
             event.setCancelled(true);
     }
 
     @EventHandler
     public void onPlayerConsume(PlayerItemConsumeEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
         Player player = event.getPlayer();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
             event.setCancelled(true);
     }
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
         Player player = event.getPlayer();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
             event.setCancelled(true);
     }
 
     @EventHandler
     public void onElytra(EntityToggleGlideEvent event)
     {
-        if(game.world == null)
+        if (game.world == null)
             return;
 
-        if(!(event.getEntity() instanceof Player))
+        if (!(event.getEntity() instanceof Player))
             return;
 
         Player player = (Player)event.getEntity();
 
-        if(player.getWorld().getName().equals(game.world.getName()))
+        if (player.getWorld().getName().equals(game.world.getName()))
             event.setCancelled(true);
     }
 
     private boolean onGameCommand(CommandSender sender, String[] args)
     {
-        if(args.length != 0) return false;
-        if(!(sender instanceof Player)) return false;
+        if (args.length != 0) return false;
+        if (!(sender instanceof Player)) return false;
 
         Player player = (Player) sender;
 
-        if(game.state == VertigoGame.GameState.INIT)
+        if (game.state == VertigoGame.GameState.INIT)
         {
             player.sendMessage("There is no Vertigo game going on right now.");
         }
-        else if(game.state == VertigoGame.GameState.READY || game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING || game.state == VertigoGame.GameState.ENDED)
+        else if (game.state == VertigoGame.GameState.READY || game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING || game.state == VertigoGame.GameState.ENDED)
         {
-            if(!game.hasPlayerJoined(player))
+            if (!game.hasPlayerJoined(player))
             {
                 game.join(player, (game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING || game.state == VertigoGame.GameState.ENDED));
             }
@@ -288,47 +280,47 @@ public final class VertigoLoader extends JavaPlugin implements Listener
 
                 VertigoPlayer vp = game.findPlayer(player);
 
-                if(game.state == VertigoGame.GameState.READY)
+                if (game.state == VertigoGame.GameState.READY)
                 {
                     list.add("We're waiting for players to join.\n");
 
-                    if(vp != null && !vp.isPlaying && !vp.wasPlaying)
+                    if (vp != null && !vp.isPlaying && !vp.wasPlaying)
                         list.add("You're " + ChatColor.YELLOW + "spectating.\n" + ChatColor.WHITE);
                     else
                         list.add("You've joined the game.\n");
                 }
-                else if(game.state == VertigoGame.GameState.COUNTDOWN_TO_START)
+                else if (game.state == VertigoGame.GameState.COUNTDOWN_TO_START)
                 {
                     list.add("The game is starting. Get ready!\n");
 
-                    if(vp != null && !vp.isPlaying && !vp.wasPlaying)
+                    if (vp != null && !vp.isPlaying && !vp.wasPlaying)
                         list.add("You're " + ChatColor.YELLOW + "spectating. " + ChatColor.WHITE);
 
-                    if(vp != null && vp.isPlaying)
+                    if (vp != null && vp.isPlaying)
                         list.add("You will jump as number " + ChatColor.GREEN + vp.order + ChatColor.WHITE + " of " + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players.\n");
                     else
                         list.add("" + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players are playing.\n");
                 }
-                else if(game.state == VertigoGame.GameState.RUNNING)
+                else if (game.state == VertigoGame.GameState.RUNNING)
                 {
-                    if(vp != null && !vp.isPlaying && !vp.wasPlaying)
+                    if (vp != null && !vp.isPlaying && !vp.wasPlaying)
                         list.add("You're " + ChatColor.YELLOW + "spectating. " + ChatColor.WHITE);
                     else
                         list.add("You've joined the game. ");
 
-                    if(vp != null && vp.isPlaying)
+                    if (vp != null && vp.isPlaying)
                         list.add("You jump as number " + ChatColor.GREEN + vp.order + ChatColor.WHITE + " of " + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players.\n");
                     else
                         list.add("" + ChatColor.DARK_GREEN + game.jumpers.size() + ChatColor.WHITE + " players are playing.\n");
                 }
-                else if(game.state == VertigoGame.GameState.ENDED)
+                else if (game.state == VertigoGame.GameState.ENDED)
                 {
                     list.add("The game is over! Final scores:\n");
                 }
 
                 for(VertigoPlayer vp_ : game.jumpers)
                 {
-                    if(vp_.getPlayer().getUniqueId().equals(player.getUniqueId()))
+                    if (vp_.getPlayer().getUniqueId().equals(player.getUniqueId()))
                         list.add("" + ChatColor.AQUA + vp_.getPlayer().getName() + " (" + vp_.score + ") ");
                     else
                         list.add(ChatColor.DARK_AQUA + vp_.getPlayer().getName() + " (" + vp_.score + ") ");
@@ -338,7 +330,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
 
                 for(VertigoPlayer vp_ : game.players)
                 {
-                    if(!vp_.isPlaying && !vp_.wasPlaying)
+                    if (!vp_.isPlaying && !vp_.wasPlaying)
                         list.add(Msg.button("" + ChatColor.GRAY + "(" + vp_.getPlayer().getName() + ") ", "Spectating", ""));
                 }
 
@@ -349,62 +341,40 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         return true;
     }
 
-    private boolean onAdminCommand(CommandSender sender, String[] args)
-    {
-        if(!(sender instanceof Player))
+    private boolean onAdminCommand(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
             return false;
-
+        }
         Player admin = (Player)sender;
-
-        /*BossBar bar = getServer().createBossBar(ChatColor.BOLD + "Vertigo " + ChatColor.WHITE + "starting..", BarColor.BLUE, BarStyle.SOLID);
-        bar.setVisible(true);
-        bar.addPlayer(admin);*/
-
-        if(args.length == 0)
-        {
+        if (args.length == 0) {
             List<Object> list = new ArrayList<>();
-
-            if(!map_loaded)
-            {
+            if (!map_loaded) {
                 list.add("Hello " + admin.getName() + ". There is no Vertigo game set up right now.\nYou can set one up by selecting a map:\n");
                 int c = 0;
                 int perLine = 4;
-
-                for(String mapWorldName : getConfig().getStringList("maps"))
-                {
+                for(String mapWorldName : getConfig().getStringList("maps")) {
                     // Get nice map name.
                     YamlConfiguration config = YamlConfiguration.loadConfiguration(new File( this.getDataFolder() + "/maps/" + mapWorldName + "/config.yml"));
-
                     String niceName = config.getString("map.name");
-
-                    if(niceName == null)
+                    if (niceName == null) {
                         niceName = mapWorldName;
-
+                    }
                     list.add(Msg.button(ChatColor.AQUA + niceName + " " + ChatColor.GRAY + "✦ ", "/vertigoadmin load " + mapWorldName, "/vertigoadmin load " + mapWorldName));
                     c++;
-
-                    if(c == perLine)
-                    {
+                    if (c == perLine) {
                         list.add("\n");
                         c = 0;
                     }
                 }
-
                 Msg.sendRaw(admin, list);
-            }
-            else
-            {
-                if(game.state == VertigoGame.GameState.INIT)
-                {
+            } else {
+                if (game.state == VertigoGame.GameState.INIT) {
                     list.add("Game is set up. Activate it whenever you want.\n");
                     list.add(Msg.button(ChatColor.AQUA + "[Activate game]", "Make the game accept players.", "/vertigoadmin ready"));
                     list.add(" or ");
                     list.add(Msg.button(ChatColor.AQUA + "[Discard game]", "Discard the game.", "/vertigoadmin discard"));
-
                     Msg.sendRaw(admin, list);
-                }
-                else if(game.state == VertigoGame.GameState.READY)
-                {
+                } else if (game.state == VertigoGame.GameState.READY) {
                     list.add("Game is ready.\n");
                     list.add(Msg.button(ChatColor.AQUA + "[Announce game]", "Announce the game to all players.", "/vertigoadmin announce"));
                     list.add(" or ");
@@ -413,121 +383,83 @@ public final class VertigoLoader extends JavaPlugin implements Listener
                     list.add(Msg.button(ChatColor.GREEN + "[Start game]", "Start the game.", "/vertigoadmin start"));
                     list.add("\n");
                     list.add(Msg.button(ChatColor.AQUA + "[Join game]", "Join the game.", "/vertigo"));
-
                     Msg.sendRaw(admin, list);
-                }
-                else if(game.state == VertigoGame.GameState.RUNNING)
-                {
+                } else if (game.state == VertigoGame.GameState.RUNNING) {
                     list.add("Game is running.\n");
                     list.add(Msg.button(ChatColor.AQUA + "[Discard game]", "Discard the game.", "/vertigoadmin discard"));
                     list.add(" or ");
                     list.add(Msg.button(ChatColor.GREEN + "[End game]", "End the game.", "/vertigoadmin end"));
-
                     Msg.sendRaw(admin, list);
-                }
-                else if(game.state == VertigoGame.GameState.ENDED)
-                {
+                } else if (game.state == VertigoGame.GameState.ENDED) {
                     list.add("Game ended.\n");
                     list.add(Msg.button(ChatColor.AQUA + "[Discard game]", "Discard the game.", "/vertigoadmin discard"));
                     list.add(" or ");
                     list.add(Msg.button(ChatColor.GREEN + "[Reset game]", "Reset the game to be started again.", "/vertigoadmin reset"));
-
                     Msg.sendRaw(admin, list);
-                }
-                else
-                {
+                } else {
                     admin.sendMessage("Game state is " + game.state.toString());
                 }
             }
-
             return true;
         }
-
         String cmd = args[0];
-
-        if(cmd.equalsIgnoreCase("load")) {
+        if (cmd.equalsIgnoreCase("load")) {
             sender.sendMessage("Loading world: " + args[1]);
             loadAndPlayWorld(args[1]);
-        } else if(cmd.equalsIgnoreCase("discard")) {
+        } else if (cmd.equalsIgnoreCase("test")) {
+            sender.sendMessage("Testing world: " + args[1]);
+            loadAndPlayWorld(args[1]);
+            game.setTesting(true);
+        } else if (cmd.equalsIgnoreCase("discard")) {
             game.shutdown();
-
             for(Player p : game.world.getPlayers()) {
                 game.leave(p);
                 p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
-
-                if(p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
+                if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
                     p.setGameMode(GameMode.ADVENTURE);
             }
-
             File dir = game.world.getWorldFolder();
             boolean unloaded = getServer().unloadWorld(game.world, false);
-
-            if(unloaded)
-            {
+            if (unloaded) {
                 deleteFiles(dir);
                 map_loaded = false;
                 game.discard();
-
                 admin.sendMessage("The game has been discarded.");
-            }
-            else
-            {
+            } else {
                 admin.sendMessage(ChatColor.RED + "The game world could not be unloaded.");
             }
-        }
-        else if(cmd.equalsIgnoreCase("ready"))
-        {
+        } else if (cmd.equalsIgnoreCase("ready")) {
             game.ready(admin);
             admin.performCommand("vertigoadmin");
-        }
-        else if(cmd.equalsIgnoreCase("announce"))
-        {
-            if(game.state != VertigoGame.GameState.READY)
-            {
+        } else if (cmd.equalsIgnoreCase("announce")) {
+            if (game.state != VertigoGame.GameState.READY) {
                 admin.sendMessage(ChatColor.RED + "No can do. The game isn't ready yet.");
                 return true;
             }
-
-            if(getServer().getOnlinePlayers().size() > 0)
-            {
+            if (getServer().getOnlinePlayers().size() > 0) {
                 List<Object> list = new ArrayList<>();
                 list.add(Msg.format(chatPrefix + "A game of Vertigo is about to start.\n"));
                 list.add(Msg.button(ChatColor.DARK_AQUA + "[Click here to join]", "Join this game of Vertigo.", "/vertigo"));
-
-                for(Player player : getServer().getOnlinePlayers())
-                {
+                for(Player player : getServer().getOnlinePlayers()) {
                     Msg.sendRaw(player, list);
                 }
             }
-        }
-        else if(cmd.equalsIgnoreCase("start"))
-        {
+        } else if (cmd.equalsIgnoreCase("start")) {
             game.start();
-        }
-        else if(cmd.equalsIgnoreCase("end"))
-        {
+        } else if (cmd.equalsIgnoreCase("end")) {
             game.end();
-        }
-        else if(cmd.equalsIgnoreCase("reset"))
-        {
+        } else if (cmd.equalsIgnoreCase("reset")) {
             game.reset();
         }
-        else if(cmd.equalsIgnoreCase("kickplayers"))
-        {
-            for(Player p : game.world.getPlayers())
-            {
+        else if (cmd.equalsIgnoreCase("kickplayers")) {
+            for(Player p : game.world.getPlayers()) {
                 p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
-
-                if(p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
+                if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
                     p.setGameMode(GameMode.ADVENTURE);
             }
-        }
-        else if(cmd.equalsIgnoreCase("spectate"))
-        {
+        } else if (cmd.equalsIgnoreCase("spectate")) {
             game.join(admin, true);
-        }
-        else if(cmd.equalsIgnoreCase("event"))
-        {
+        } else if (cmd.equalsIgnoreCase("event")) {
             if (args.length > 2) return false;
             if (args.length == 1) {
                 sender.sendMessage(ChatColor.YELLOW + "Event mode: " + state.event);
@@ -546,12 +478,10 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         } else {
             return false;
         }
-
         return true;
     }
 
-    private World loadWorld(String worldname, YamlConfiguration config)
-    {
+    private World loadWorld(String worldname, YamlConfiguration config) {
         WorldCreator wc = new WorldCreator(worldname);
         wc.environment(World.Environment.valueOf(config.getString("world.Environment")));
         wc.generateStructures(config.getBoolean("world.GenerateStructures"));
@@ -565,72 +495,53 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         return world;
     }
 
-    private void copyFileStructure(File source, File target)
-    {
-        try
-        {
+    private void copyFileStructure(File source, File target) {
+        try {
             ArrayList<String> ignore = new ArrayList<>(Arrays.asList("uid.dat", "session.lock"));
-
-            if(!ignore.contains(source.getName()))
-            {
-                if(source.isDirectory())
-                {
-                    if(!target.exists())
-                    {
-                        if(!target.mkdirs())
+            if (!ignore.contains(source.getName())) {
+                if (source.isDirectory()) {
+                    if (!target.exists()) {
+                        if (!target.mkdirs())
                             throw new IOException("Couldn't create world directory!");
                     }
-
                     String[] files = source.list();
-
-                    for(String file : files)
-                    {
+                    for(String file : files) {
                         File srcFile = new File(source, file);
                         File destFile = new File(target, file);
                         copyFileStructure(srcFile, destFile);
                     }
-                }
-                else
-                {
+                } else {
                     InputStream in = new FileInputStream(source);
                     OutputStream out = new FileOutputStream(target);
-
                     byte[] buffer = new byte[1024];
                     int length;
-
-                    while((length = in.read(buffer)) > 0)
+                    while((length = in.read(buffer)) > 0) {
                         out.write(buffer, 0, length);
-
+                    }
                     in.close();
                     out.close();
                 }
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void deleteFiles(File path)
-    {
-        if(path.exists())
-        {
-            for(File file : path.listFiles())
-            {
-                if(file.isDirectory())
+    private void deleteFiles(File path) {
+        if (path.exists()) {
+            for(File file : path.listFiles()) {
+                if (file.isDirectory())
                     deleteFiles(file);
                 else
                     file.delete();
             }
-
             path.delete();
         }
     }
 
-    void tick() {
+    private void tick() {
         List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
-        if (online.size() < 2) {
+        if ((!map_loaded || !game.isTesting()) && online.size() < 2) {
             if (map_loaded) {
                 discardWorld(game);
                 map_loaded = false;
@@ -674,7 +585,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
         loadAndPlayWorld(worldName);
     }
 
-    void loadAndPlayWorld(String worldName) {
+    private void loadAndPlayWorld(String worldName) {
         VertigoGame oldGame = game;
         game = loadWorld(worldName);
         map_loaded = true;
@@ -696,7 +607,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener
 
         newGame.setWorld(gameWorld, config.getString("map.name"));
 
-        if(newGame.setup(Bukkit.getConsoleSender())) {
+        if (newGame.setup(Bukkit.getConsoleSender())) {
             newGame.ready(Bukkit.getConsoleSender());
             for (Player player : Bukkit.getOnlinePlayers()) {
                 newGame.join(player, false); // Player, isSpectator
@@ -709,18 +620,19 @@ public final class VertigoLoader extends JavaPlugin implements Listener
     }
 
     void discardWorld(VertigoGame theGame) {
+        getLogger().info("Discarding world " + theGame.mapName);
         theGame.shutdown();
         if (theGame.world == null) return;
         for(Player p : theGame.world.getPlayers()) {
             theGame.leave(p);
             p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
-            if(p.getGameMode() != GameMode.ADVENTURE) {
+            if (p.getGameMode() != GameMode.ADVENTURE) {
                 p.setGameMode(GameMode.ADVENTURE);
             }
         }
         File dir = theGame.world.getWorldFolder();
         boolean unloaded = getServer().unloadWorld(theGame.world, false);
-        if(unloaded) {
+        if (unloaded) {
             deleteFiles(dir);
             theGame.discard();
         } else {

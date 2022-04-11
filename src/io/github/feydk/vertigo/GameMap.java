@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.*;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
@@ -17,8 +19,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-class GameMap
-{
+public final class GameMap {
     private List<Location> spawnLocations = new ArrayList<>();
     private List<String> credits = new ArrayList<>();
     private List<ItemStack> blocks = new ArrayList<>();
@@ -45,378 +46,255 @@ class GameMap
     private List<Location> boundaries = new ArrayList<>();
     private double minX, minZ, maxX, maxZ, maxY;
 
-    GameMap(int chunkRadius, VertigoGame game)
-    {
+    protected GameMap(int chunkRadius, VertigoGame game) {
         this.chunkRadius = chunkRadius;
         this.game = game;
-
         ringChance = game.loader.getConfig().getDouble("general.ringChance");
     }
 
-    void addBlock()
-    {
+    protected void addBlock() {
         blockCount++;
     }
 
-    void addSkull(Block block)
-    {
+    protected void addSkull(Block block) {
         skulls.add(block);
     }
 
-    int getWaterLeft()
-    {
+    protected int getWaterLeft() {
         return waterCount - blockCount;
     }
 
-    int getStartingTime()
-    {
+    protected int getStartingTime() {
         return time;
     }
 
-    boolean getLockTime()
-    {
+    protected boolean getLockTime() {
         return lockTime;
     }
 
-    void removeRing()
-    {
-        if(currentRingCenter != null)
-        {
-            for(Block b : currentRing)
+    protected void removeRing() {
+        if (currentRingCenter != null) {
+            for (Block b : currentRing) {
                 game.world.getBlockAt(b.getLocation()).setType(Material.AIR);
-
+            }
             game.world.getBlockAt(currentRingCenter).setType(Material.AIR);
-
             currentRing.clear();
-
             currentRingCenter = null;
         }
     }
 
-    boolean spawnRing()
-    {
+    boolean spawnRing() {
         double number = Math.random() * 100;
-
-        if(number - ringChance <= 0)
-        {
+        if (number - ringChance <= 0) {
             // The upper limit of the ring is 10 blocks below the jump threshold. This is to make sure there's a decent enough chance to actually hit it.
             // The lower limit is 5 blocks above the boundary.
             int max = (int) (jumpThreshold.getY() - 10);
             int min = (int) (maxY + 5);
-
-            if(max > min)
-            {
+            if (max > min) {
                 // Then pick a random location within the boundaries.
                 Random r = new Random(System.currentTimeMillis());
-
                 int y = r.nextInt(max - min) + min;
                 int x = (int) (r.nextInt((int) (maxX - minX)) + minX);
                 int z = (int) (r.nextInt((int) (maxZ - minZ)) + minZ);
-
                 currentRingCenter = new Location(game.world, x, y, z);
-
                 currentRing.add(game.world.getBlockAt(currentRingCenter.clone().add(1, 0, 0)));
                 currentRing.add(game.world.getBlockAt(currentRingCenter.clone().subtract(1, 0, 0)));
                 currentRing.add(game.world.getBlockAt(currentRingCenter.clone().add(0, 0, 1)));
                 currentRing.add(game.world.getBlockAt(currentRingCenter.clone().subtract(0, 0, 1)));
-
-                for(Block b : currentRing)
+                for (Block b : currentRing) {
                     game.world.getBlockAt(b.getLocation()).setType(Material.GOLD_BLOCK);
-
+                }
                 return true;
             }
         }
-
         return false;
     }
 
-    void reset()
-    {
+    protected void reset() {
         blockCount = 0;
         removeRing();
-
-        if(skulls.size() > 0)
-        {
-            for(Block b : skulls)
-            {
+        if (skulls.size() > 0) {
+            for (Block b : skulls) {
                 b.setType(Material.AIR);
                 game.world.getBlockAt(b.getLocation().clone().subtract(0, 1, 0)).setType(Material.WATER);
             }
-
             skulls.clear();
         }
     }
 
-    String getCredits()
-    {
-        if(credits.size() > 0)
-        {
-            if(credits.size() == 1)
-            {
+    protected String getCredits() {
+        if (credits.size() > 0) {
+            if (credits.size() == 1) {
                 return credits.get(0);
-            }
-            else
-            {
+            } else {
                 String c = "";
-
-                for(int i = 0; i < credits.size(); i++)
-                {
+                for (int i = 0; i < credits.size(); i++) {
                     c += credits.get(i);
-
                     int left = credits.size() - (i + 1);
-
-                    if(left == 1)
+                    if (left == 1) {
                         c += " and ";
-                    else if(left > 1)
+                    } else if (left > 1) {
                         c += ", ";
+                    }
                 }
-
                 return c;
             }
         }
-
         return "";
     }
 
-    /*public void animateBlocks(ColorBlock currentColor)
-      {
-      for(Block b : replacedBlocks)
-      {
-      if(b.getType() != Material.AIR && b.getTypeId() == currentColor.TypeId && b.getData() == currentColor.DataId)
-      {
-      world.spigot().playEffect(b.getLocation().add(.5, 1.5, .5), Effect.COLOURED_DUST, 0, 0, .5f, .5f, .5f, .01f, 5, 50);
-      //(Location location, Effect effect, int id, int data, float offsetX, float offsetY, float offsetZ, float speed, int particleCount, int radius)
-      }
-      }
-      }*/
-
-    ItemStack getRandomBlock()
-    {
+    protected ItemStack getRandomBlock() {
         Random r = new Random(System.currentTimeMillis());
-
         return blocks.get(r.nextInt(blocks.size()));
     }
 
-    boolean isBlock(Block block)
-    {
+    protected boolean isBlock(Block block) {
         Material material = block.getType();
-
-        for(ItemStack item : blocks)
-        {
-            if(item.getType() == material)
-            {
+        for (ItemStack item : blocks) {
+            if (item.getType() == material) {
                 // Must have skull on top.
-                if(block.getRelative(BlockFace.UP).getType() == Material.PLAYER_HEAD)
+                if (block.getRelative(BlockFace.UP).getType() == Material.PLAYER_HEAD) {
                     return true;
+                }
             }
         }
-
         return false;
     }
 
-    Location getJumpSpot()
-    {
-        if(jumpSpots.size() == 1)
+    protected Location getJumpSpot() {
+        if (jumpSpots.size() == 1) {
             return jumpSpots.get(0);
-
+        }
         Random r = new Random(System.currentTimeMillis());
-
         return jumpSpots.get(r.nextInt(jumpSpots.size()));
     }
 
-    double getJumpThresholdY()
-    {
+    protected double getJumpThresholdY() {
         return jumpThreshold.getY();
     }
 
-    Location dealSpawnLocation()
-    {
-        if(spawnLocations.isEmpty())
-        {
-            if(game.loader.debug)
+    protected Location dealSpawnLocation() {
+        if (spawnLocations.isEmpty()) {
+            if (game.loader.debug) {
                 game.loader.getLogger().warning("No [SPAWN] points were set. Falling back to world spawn.");
-
+            }
             return world.getSpawnLocation();
         }
-
-        if(!spawnLocationsRandomized)
-        {
+        if (!spawnLocationsRandomized) {
             Random random = new Random(System.currentTimeMillis());
             spawnLocationsRandomized = true;
             Collections.shuffle(spawnLocations, random);
         }
-
-        if(spawnLocationIter >= spawnLocations.size())
+        if (spawnLocationIter >= spawnLocations.size()) {
             spawnLocationIter = 0;
-
+        }
         int i = spawnLocationIter++;
-
         return spawnLocations.get(i);
     }
 
-    boolean process(Chunk startingChunk)
-    {
+    protected boolean process(Chunk startingChunk) {
         world = startingChunk.getWorld();
-
         int cx = startingChunk.getX();
         int cz = startingChunk.getZ();
-
         // Crawl the map in a <chunkRadius> chunk radius in all directions.
-        for(int dx = -chunkRadius; dx <= chunkRadius; dx++)
-        {
-            for(int dz = -chunkRadius; dz <= chunkRadius; dz++)
-            {
+        for (int dx = -chunkRadius; dx <= chunkRadius; dx++) {
+            for (int dz = -chunkRadius; dz <= chunkRadius; dz++) {
                 int x = cx + dx;
                 int z = cz + dz;
-
                 // Find signs to register the blocks used in the map.
                 findChunkSigns(x, z);
             }
         }
-
-        if(jumpSpots.size() == 0)
-        {
-            if(game.loader.debug)
-            {
+        if (jumpSpots.size() == 0) {
+            if (game.loader.debug) {
                 game.loader.getLogger().warning("No [JUMP] sign was found. At least one is required.");
             }
-
             return false;
         }
-
-        if(jumpThreshold == null)
-        {
-            if(game.loader.debug)
-            {
+        if (jumpThreshold == null) {
+            if (game.loader.debug) {
                 game.loader.getLogger().warning("No [THRESHOLD] sign was found.");
             }
 
             return false;
         }
-
-        if(blocks.size() == 0)
-        {
-            if(game.loader.debug)
-            {
+        if (blocks.size() == 0) {
+            if (game.loader.debug) {
                 game.loader.getLogger().warning("No [BLOCKS] chest found and/or chest was empty.");
             }
-
             return false;
         }
-
-        if(waterCount == 0)
-        {
-            if(game.loader.debug)
-            {
+        if (waterCount == 0) {
+            if (game.loader.debug) {
                 game.loader.getLogger().warning("No [WATER] sign was found.");
             }
-
             return false;
         }
-
         // Determine boundaries.
-        if(boundaries.size() == 2)
-        {
+        if (boundaries.size() == 2) {
             Location b1 = boundaries.get(0);
             Location b2 = boundaries.get(1);
-
-            if(b1.getX() >= b2.getX())
-            {
+            if (b1.getX() >= b2.getX()) {
                 minX = b2.getX();
                 maxX = b1.getX() + 1.0;
-            }
-            else
-            {
+            } else {
                 minX = b1.getX();
                 maxX = b2.getX() + 1.0;
             }
-
-            //minY = b2.getY();
-            //minY = b1.getY();
             maxY = Math.max(b1.getY(), b2.getY()) + 1.0;
-
-            if(b1.getZ() >= b2.getZ())
-            {
+            if (b1.getZ() >= b2.getZ()) {
                 minZ = b2.getZ();
                 maxZ = b1.getZ() + 1.0;
-            }
-            else
-            {
+            } else {
                 minZ = b1.getZ();
                 maxZ = b2.getZ() + 1.0;
             }
-
-            //System.out.println("X: " + minX + ", " + maxX);
-            //System.out.println("Y: " + minY + ", " + maxY);
-            //System.out.println("Z: " + minZ + ", " + maxZ);
-        }
-        else
-        {
-            if(game.loader.debug)
-            {
+        } else {
+            if (game.loader.debug) {
                 game.loader.getLogger().warning("Not enough [BOUNDARY] signs: " + boundaries.size()
                                                 +  ". Must have exactly two.");
             }
-
             return false;
         }
-
         return true;
     }
 
     // Searches a chunk for map configuration signs.
-    private void findChunkSigns(int x, int z)
-    {
+    private void findChunkSigns(int x, int z) {
         // Process the chunk.
         Chunk chunk = world.getChunkAt(x, z);
         chunk.load();
-
-        for(BlockState state : chunk.getTileEntities())
-        {
-            if(state instanceof Chest)
-            {
+        for (BlockState state : chunk.getTileEntities()) {
+            if (state instanceof Chest) {
                 Chest chestBlock = (Chest) state;
-
-                if(chestBlock.getCustomName() != null && chestBlock.getCustomName().equalsIgnoreCase("[blocks]"))
-                {
+                if (chestBlock.getCustomName() != null && chestBlock.getCustomName().equalsIgnoreCase("[blocks]")) {
                     Inventory inv = chestBlock.getInventory();
-                    for(ItemStack item : inv.getContents())
+                    for (ItemStack item : inv.getContents())
                     {
-                        if(item != null)
+                        if (item != null)
                             blocks.add(item);
                     }
-
                     inv.clear();
                     state.getBlock().setType(Material.AIR);
                 }
-            }
-            else if(state instanceof Sign)
-            {
+            } else if (state instanceof Sign) {
                 Block sign_block = state.getBlock();
                 BlockData data = sign_block.getBlockData();
                 Block attached = null;
-
-                if(data instanceof Directional)
-                {
+                if (data instanceof Directional) {
                     Directional dir = (Directional)data;
                     attached = sign_block.getRelative(dir.getFacing().getOppositeFace());
                 }
-
                 String firstLine = ((Sign)state).getLine(0).toLowerCase();
-
-                if(firstLine.startsWith("[") && firstLine.endsWith("]"))
-                {
-                    if(firstLine.equals("[spawn]"))
-                    {
+                if (firstLine.startsWith("[") && firstLine.endsWith("]")) {
+                    if (firstLine.equals("[spawn]")) {
                         Location location = state.getBlock().getLocation().add(.5, .5, .5);
                         Vector lookAt = world.getSpawnLocation().toVector().subtract(location.toVector());
                         location.setDirection(lookAt);
                         spawnLocations.add(location);
 
                         state.getBlock().setType(Material.AIR);
-                    }
-                    else if(firstLine.equals("[jump]"))
-                    {
+                    } else if (firstLine.equals("[jump]")) {
                         Location location = state.getBlock().getLocation().add(.5, .5, .5);
                         Location spawn = world.getSpawnLocation();
                         spawn.setY(location.getY());
@@ -425,59 +303,45 @@ class GameMap
                         jumpSpots.add(location);
 
                         state.getBlock().setType(Material.AIR);
-                    }
-                    else if(firstLine.equals("[threshold]"))
-                    {
+                    } else if (firstLine.equals("[threshold]")) {
                         jumpThreshold = state.getBlock().getLocation();
 
                         state.getBlock().setType(Material.AIR);
-                    }
-                    else if(firstLine.equals("[water]"))
-                    {
+                    } else if (firstLine.equals("[water]")) {
                         String t = ((Sign)state).getLine(1);
-
-                        if(!t.isEmpty())
-                        {
-                            try
-                            {
+                        if (!t.isEmpty()) {
+                            try {
                                 waterCount = Integer.parseInt(t);
                             }
-                            catch(NumberFormatException ignored)
-                            {}
+                            catch(NumberFormatException ignored) { }
                         }
-
                         state.getBlock().setType(Material.AIR);
-                    }
-                    // Boundaries.
-                    else if(firstLine.equals("[boundary]"))
-                    {
+                    } else if (firstLine.equals("[boundary]")) {
+                        // Boundaries.
                         Location location = sign_block.getLocation();
                         System.out.println("[boundary]: " + location);
                         boundaries.add(location);
 
                         state.getBlock().setType(Material.AIR);
                         //attachedBlock.setType(Material.AIR);
-                    }
-                    else if(firstLine.equals("[credits]"))
-                    {
-                        for(int i = 1; i < 4; ++i)
-                        {
+                    } else if (firstLine.equals("[credits]")) {
+                        for (int i = 1; i < 4; ++i) {
                             String credit = ((Sign) state).getLine(i);
 
-                            if(!credit.isEmpty())
+                            if (!credit.isEmpty())
                                 credits.add(credit);
                         }
 
                         state.getBlock().setType(Material.AIR);
 
-                        //if(attached != null)
+                        //if (attached != null)
                         //    attached.setType(Material.AIR);
                     }
-                    else if(firstLine.equals("[time]"))
+                    else if (firstLine.equals("[time]"))
                     {
                         String t = ((Sign) state).getLine(1);
 
-                        if(!t.isEmpty())
+                        if (!t.isEmpty())
                         {
                             try
                             {
@@ -487,20 +351,20 @@ class GameMap
                             {}
                         }
 
-                        if(time > -1)
+                        if (time > -1)
                         {
                             String l = ((Sign) state).getLine(2);
 
-                            if(!l.isEmpty())
+                            if (!l.isEmpty())
                             {
-                                if(l.toLowerCase().equals("lock"))
+                                if (l.toLowerCase().equals("lock"))
                                     lockTime = true;
                             }
                         }
 
                         state.getBlock().setType(Material.AIR);
 
-                        //if(attached != null)
+                        //if (attached != null)
                         //    attached.setType(Material.AIR);
                     }
                 }
