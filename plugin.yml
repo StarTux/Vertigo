@@ -5,7 +5,7 @@ version: 1.0
 api-version: 1.18
 website: https://cavetale.com
 main: io.github.feydk.vertigo.VertigoLoader
-depend: [Title, Sidebar]
+depend: [Core, PlayerCache, Mytems, Title, Sidebar, Fam]
 softdepend: []
 commands:
   vertigo:
@@ -13,6 +13,7 @@ commands:
     permission: vertigo.vertigo
     usage: /vertigo
   vertigoadmin:
+    aliases: [vertigoadm]
     description: Vertigo admin interface
     permission: vertigo.admin
     usage: |-

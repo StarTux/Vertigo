@@ -1,5 +1,6 @@
 package io.github.feydk.vertigo;
 
+import com.cavetale.core.font.Unicode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,7 +35,7 @@ import static io.github.feydk.vertigo.VertigoLoader.chatPrefix;
 
 @Getter
 public final class VertigoGame {
-    protected VertigoLoader loader;
+    protected VertigoLoader plugin;
     protected World world;
     protected GameMap map;
     protected String mapName;
@@ -72,15 +73,24 @@ public final class VertigoGame {
         ENDED                 // Game is over
     }
 
-    public VertigoGame(final VertigoLoader loader) {
-        this.loader = loader;
-        countdownToStartDuration = loader.getConfig().getInt("general.countdownToStartDuration");
-        endDuration = loader.getConfig().getInt("general.endDuration");
+    protected void log(String msg) {
+        plugin.getLogger().info("[" + mapName + "] " + msg);
+    }
+
+    protected void warn(String msg) {
+        plugin.getLogger().warning("[" + mapName + "] " + msg);
+    }
+
+    public VertigoGame(final VertigoLoader plugin) {
+        this.plugin = plugin;
+        countdownToStartDuration = plugin.getConfig().getInt("general.countdownToStartDuration");
+        endDuration = plugin.getConfig().getInt("general.endDuration");
     }
 
     protected void setWorld(World theWorld, String theMapName) {
         this.world = theWorld;
-            this.mapName = theMapName;
+        this.mapName = theMapName;
+        log("Did set world");
     }
 
     protected boolean setup(CommandSender admin) {
@@ -110,7 +120,7 @@ public final class VertigoGame {
         if (world.getWorldBorder().getSize() < 2048) {
             world.getWorldBorder().setSize(2048);
         }
-        map = new GameMap(loader.getConfig().getInt("general.chunkRadius"), this);
+        map = new GameMap(plugin.getConfig().getInt("general.chunkRadius"), this);
         boolean ready = map.process(getSpawnLocation().getChunk());
         if (ready) {
             if (map.getStartingTime() == -1) {
@@ -165,7 +175,7 @@ public final class VertigoGame {
         player.teleport(vp.getSpawnLocation());
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
         player.sendTitle("Welcome to Vertigo", "", -1, -1, -1);
-        if (loader.state.event) {
+        if (plugin.state.event && !testing) {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + player.getName());
         }
     }
@@ -220,11 +230,13 @@ public final class VertigoGame {
                     aliveCount++;
                 }
             }
-            if (aliveCount == 0 || (aliveCount == 1 && moreThanOnePlayed) || map.getWaterLeft() <= 0) {
+            if (aliveCount == 0 || (aliveCount == 1 && moreThanOnePlayed && !testing) || map.getWaterLeft() <= 0) {
+                log("Stopping game because of alive count");
                 newState = GameState.ENDED;
             } else {
                 // At the start of each "round", check if someone is 10 points ahead. If yes, end the game.
                 if (currentJumperIndex == 0 && isSomeoneLeadingBy(10)) {
+                    log("Stopping game because someone is leading by 10");
                     newState = GameState.ENDED;
                 }
             }
@@ -336,7 +348,7 @@ public final class VertigoGame {
     }
 
     private void stateChange(GameState oldState, GameState newState) {
-        loader.getLogger().info(mapName + ": " + oldState + " => " + newState);
+        log("State " + oldState + " => " + newState);
         stateTicks = 0;
         if (newState == GameState.COUNTDOWN_TO_START) {
             int count = 0;
@@ -353,14 +365,14 @@ public final class VertigoGame {
                     jumpers.add(vp);
                 }
             }
-            Collections.shuffle(jumpers, new Random(System.currentTimeMillis()));
+            Collections.shuffle(jumpers);
             currentJumperIndex = 0;
         } else if (newState == GameState.RUNNING) {
             startRound();
         } else if (newState == GameState.ENDED) {
             if (!winnerName.equals("")) {
                 sendMsgToAllPlayers(chatPrefix + "&b" + winnerName + " wins the game!");
-                if (loader.state.event) {
+                if (plugin.state.event && !testing) {
                     Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winnerName + " Splash Jumper WaterBucket");
                 }
             } else {
@@ -457,6 +469,11 @@ public final class VertigoGame {
         if (currentJumperPassedRing) {
             score += 1;
             vp.score += score;
+            if (plugin.state.event) {
+                plugin.state.addScore(vp.uuid, score);
+                plugin.computeHighscore();
+                plugin.saveState();
+            }
             map.removeRing();
             msg = "§cSplat! §3" + player.getName() + " §6+" + score + " point";
         }
@@ -518,6 +535,11 @@ public final class VertigoGame {
         }
         player.sendTitle("", "§9Splash! §6+ " + score + " point" + (score > 1 ? "s" : ""), -1, -1, -1);
         vp.score += score;
+        if (plugin.state.event) {
+            plugin.state.addScore(vp.uuid, score);
+            plugin.computeHighscore();
+            plugin.saveState();
+        }
         world.spawnParticle(Particle.WATER_SPLASH, landingLocation, 50, .5f, 4f, .5f, .1f);
         ItemStack r = map.getRandomBlock();
         landingLocation.getBlock().setType(r.getType(), true);
@@ -617,20 +639,21 @@ public final class VertigoGame {
                     count++;
                 }
             }
-            loader.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players. "
+            plugin.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players. "
                                     + ChatColor.GOLD + count + ChatColor.WHITE + " joined so far.");
         } else if (state == GameState.COUNTDOWN_TO_START) {
-            loader.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " starting...");
+            plugin.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " starting...");
         } else if (state == GameState.RUNNING) {
             String t = "";
             if (map.currentRingCenter != null) {
                 t += ChatColor.GOLD + "" + ChatColor.BOLD + "◯" + ChatColor.GOLD + "Golden ring ";
             }
             if (currentJumper != null) {
-                t += "" + ChatColor.WHITE + "Jumping: " + ChatColor.AQUA + currentJumper.name
-                    + ChatColor.GRAY + " [" + (currentJumperIndex + 1) + "/" + jumpers.size() + "] ";
+                t += "" + ChatColor.WHITE + "Jumping: " + ChatColor.AQUA + currentJumper.name + ChatColor.GRAY
+                    + " [" + Unicode.superscript(currentJumperIndex + 1)
+                    + "/" + Unicode.subscript(jumpers.size()) + "] ";
             }
-            loader.gamebar.setTitle(t);
+            plugin.gamebar.setTitle(t);
         } else if (state == GameState.ENDED) {
             String t = "";
             if (!winnerName.equals("")) {
@@ -638,12 +661,12 @@ public final class VertigoGame {
             } else {
                 t += "It's a draw!";
             }
-            loader.gamebar.setTitle(t);
+            plugin.gamebar.setTitle(t);
         }
         if (Double.isNaN(progress)) {
             progress = 0;
         }
-        loader.gamebar.setProgress(progress);
+        plugin.gamebar.setProgress(progress);
     }
 
     private void sendMsgToAllPlayers(String msg) {

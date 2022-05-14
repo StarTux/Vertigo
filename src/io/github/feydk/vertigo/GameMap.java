@@ -49,7 +49,7 @@ public final class GameMap {
     protected GameMap(int chunkRadius, VertigoGame game) {
         this.chunkRadius = chunkRadius;
         this.game = game;
-        ringChance = game.loader.getConfig().getDouble("general.ringChance");
+        ringChance = game.plugin.getConfig().getDouble("general.ringChance");
     }
 
     protected void addBlock() {
@@ -175,8 +175,8 @@ public final class GameMap {
 
     protected Location dealSpawnLocation() {
         if (spawnLocations.isEmpty()) {
-            if (game.loader.debug) {
-                game.loader.getLogger().warning("No [SPAWN] points were set. Falling back to world spawn.");
+            if (game.plugin.debug) {
+                game.log("No [SPAWN] points were set. Falling back to world spawn.");
             }
             return world.getSpawnLocation();
         }
@@ -206,27 +206,27 @@ public final class GameMap {
             }
         }
         if (jumpSpots.size() == 0) {
-            if (game.loader.debug) {
-                game.loader.getLogger().warning("No [JUMP] sign was found. At least one is required.");
+            if (game.plugin.debug) {
+                game.warn("No [JUMP] sign was found. At least one is required.");
             }
             return false;
         }
         if (jumpThreshold == null) {
-            if (game.loader.debug) {
-                game.loader.getLogger().warning("No [THRESHOLD] sign was found.");
+            if (game.plugin.debug) {
+                game.warn("No [THRESHOLD] sign was found.");
             }
 
             return false;
         }
         if (blocks.size() == 0) {
-            if (game.loader.debug) {
-                game.loader.getLogger().warning("No [BLOCKS] chest found and/or chest was empty.");
+            if (game.plugin.debug) {
+                game.warn("No [BLOCKS] chest found and/or chest was empty.");
             }
             return false;
         }
         if (waterCount == 0) {
-            if (game.loader.debug) {
-                game.loader.getLogger().warning("No [WATER] sign was found.");
+            if (game.plugin.debug) {
+                game.warn("No [WATER] sign was found.");
             }
             return false;
         }
@@ -250,9 +250,9 @@ public final class GameMap {
                 maxZ = b2.getZ() + 1.0;
             }
         } else {
-            if (game.loader.debug) {
-                game.loader.getLogger().warning("Not enough [BOUNDARY] signs: " + boundaries.size()
-                                                +  ". Must have exactly two.");
+            if (game.plugin.debug) {
+                game.warn("Not enough [BOUNDARY] signs: " + boundaries.size()
+                          +  ". Must have exactly two.");
             }
             return false;
         }
@@ -319,7 +319,6 @@ public final class GameMap {
                     } else if (firstLine.equals("[boundary]")) {
                         // Boundaries.
                         Location location = sign_block.getLocation();
-                        System.out.println("[boundary]: " + location);
                         boundaries.add(location);
 
                         state.getBlock().setType(Material.AIR);

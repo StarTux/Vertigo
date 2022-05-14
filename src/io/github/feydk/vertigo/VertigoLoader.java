@@ -1,13 +1,34 @@
 package io.github.feydk.vertigo;
 
+import com.cavetale.core.font.Unicode;
+import com.cavetale.core.font.VanillaItems;
+import com.cavetale.fam.trophy.SQLTrophy;
+import com.cavetale.fam.trophy.Trophies;
+import com.cavetale.mytems.Mytems;
+import com.cavetale.mytems.item.font.Glyph;
+import com.cavetale.mytems.item.trophy.TrophyCategory;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.commons.lang.RandomStringUtils;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.World;
+import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
@@ -24,44 +45,49 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
-
-import java.io.*;
-import java.util.*;
+import static net.kyori.adventure.text.Component.empty;
+import static net.kyori.adventure.text.Component.join;
+import static net.kyori.adventure.text.Component.space;
+import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
+import static net.kyori.adventure.text.format.NamedTextColor.*;
+import static net.kyori.adventure.text.format.TextDecoration.*;
 
 public final class VertigoLoader extends JavaPlugin implements Listener {
-    boolean debug;
-
-    private VertigoGame game;
-    static String chatPrefix = "§7[§bVertigo§7] ";
-
-    private boolean map_loaded;
-
-    State state;
-    int ticksWaited;
-
+    protected boolean debug;
+    protected VertigoGame game;
+    protected static String chatPrefix = "§7[§bVertigo§7] ";
+    protected boolean map_loaded;
+    protected State state;
+    protected int ticksWaited;
     protected BossBar gamebar;
+    protected File mapFolder;
+    protected List<Highscore> highscore = new ArrayList<>();
+    protected static final Component TITLE = join(noSeparators(),
+                                                  VanillaItems.WATER_BUCKET.component,
+                                                  text("Vertigo", AQUA));
+    protected static final Component TOURNAMENT_TITLE = join(noSeparators(),
+                                                             TITLE,
+                                                             VanillaItems.TROPICAL_FISH_BUCKET.component,
+                                                             text("Tournament", AQUA));
 
     public void onEnable() {
+        mapFolder = new File(getDataFolder(), "maps");
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
-
         gamebar = getServer().createBossBar(ChatColor.BOLD + "Vertigo", BarColor.BLUE, BarStyle.SOLID);
         gamebar.setProgress(0);
         gamebar.setVisible(true);
-
         this.debug = true;
         this.game = new VertigoGame(this);
-
         getCommand("vertigo").setExecutor((a, b, c, d) -> onGameCommand(a, d));
-        getCommand("vertigoadmin").setExecutor((a, b, c, d) -> onAdminCommand(a, d));
-
+        new VertigoAdminCommand(this).enable();
         Bukkit.getScheduler().runTaskTimer(this, this::tick, 1L, 1L);
-
         loadState();
-
         for (Player player : Bukkit.getOnlinePlayers()) {
             gamebar.addPlayer(player);
         }
+        computeHighscore();
     }
 
     public void onDisable() {
@@ -341,146 +367,6 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         return true;
     }
 
-    private boolean onAdminCommand(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            return false;
-        }
-        Player admin = (Player)sender;
-        if (args.length == 0) {
-            List<Object> list = new ArrayList<>();
-            if (!map_loaded) {
-                list.add("Hello " + admin.getName() + ". There is no Vertigo game set up right now.\nYou can set one up by selecting a map:\n");
-                int c = 0;
-                int perLine = 4;
-                for(String mapWorldName : getConfig().getStringList("maps")) {
-                    // Get nice map name.
-                    YamlConfiguration config = YamlConfiguration.loadConfiguration(new File( this.getDataFolder() + "/maps/" + mapWorldName + "/config.yml"));
-                    String niceName = config.getString("map.name");
-                    if (niceName == null) {
-                        niceName = mapWorldName;
-                    }
-                    list.add(Msg.button(ChatColor.AQUA + niceName + " " + ChatColor.GRAY + "✦ ", "/vertigoadmin load " + mapWorldName, "/vertigoadmin load " + mapWorldName));
-                    c++;
-                    if (c == perLine) {
-                        list.add("\n");
-                        c = 0;
-                    }
-                }
-                Msg.sendRaw(admin, list);
-            } else {
-                if (game.state == VertigoGame.GameState.INIT) {
-                    list.add("Game is set up. Activate it whenever you want.\n");
-                    list.add(Msg.button(ChatColor.AQUA + "[Activate game]", "Make the game accept players.", "/vertigoadmin ready"));
-                    list.add(" or ");
-                    list.add(Msg.button(ChatColor.AQUA + "[Discard game]", "Discard the game.", "/vertigoadmin discard"));
-                    Msg.sendRaw(admin, list);
-                } else if (game.state == VertigoGame.GameState.READY) {
-                    list.add("Game is ready.\n");
-                    list.add(Msg.button(ChatColor.AQUA + "[Announce game]", "Announce the game to all players.", "/vertigoadmin announce"));
-                    list.add(" or ");
-                    list.add(Msg.button(ChatColor.AQUA + "[Discard game]", "Discard the game.", "/vertigoadmin discard"));
-                    list.add(" or ");
-                    list.add(Msg.button(ChatColor.GREEN + "[Start game]", "Start the game.", "/vertigoadmin start"));
-                    list.add("\n");
-                    list.add(Msg.button(ChatColor.AQUA + "[Join game]", "Join the game.", "/vertigo"));
-                    Msg.sendRaw(admin, list);
-                } else if (game.state == VertigoGame.GameState.RUNNING) {
-                    list.add("Game is running.\n");
-                    list.add(Msg.button(ChatColor.AQUA + "[Discard game]", "Discard the game.", "/vertigoadmin discard"));
-                    list.add(" or ");
-                    list.add(Msg.button(ChatColor.GREEN + "[End game]", "End the game.", "/vertigoadmin end"));
-                    Msg.sendRaw(admin, list);
-                } else if (game.state == VertigoGame.GameState.ENDED) {
-                    list.add("Game ended.\n");
-                    list.add(Msg.button(ChatColor.AQUA + "[Discard game]", "Discard the game.", "/vertigoadmin discard"));
-                    list.add(" or ");
-                    list.add(Msg.button(ChatColor.GREEN + "[Reset game]", "Reset the game to be started again.", "/vertigoadmin reset"));
-                    Msg.sendRaw(admin, list);
-                } else {
-                    admin.sendMessage("Game state is " + game.state.toString());
-                }
-            }
-            return true;
-        }
-        String cmd = args[0];
-        if (cmd.equalsIgnoreCase("load")) {
-            sender.sendMessage("Loading world: " + args[1]);
-            loadAndPlayWorld(args[1]);
-        } else if (cmd.equalsIgnoreCase("test")) {
-            sender.sendMessage("Testing world: " + args[1]);
-            loadAndPlayWorld(args[1]);
-            game.setTesting(true);
-        } else if (cmd.equalsIgnoreCase("discard")) {
-            game.shutdown();
-            for(Player p : game.world.getPlayers()) {
-                game.leave(p);
-                p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
-                if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
-                    p.setGameMode(GameMode.ADVENTURE);
-            }
-            File dir = game.world.getWorldFolder();
-            boolean unloaded = getServer().unloadWorld(game.world, false);
-            if (unloaded) {
-                deleteFiles(dir);
-                map_loaded = false;
-                game.discard();
-                admin.sendMessage("The game has been discarded.");
-            } else {
-                admin.sendMessage(ChatColor.RED + "The game world could not be unloaded.");
-            }
-        } else if (cmd.equalsIgnoreCase("ready")) {
-            game.ready(admin);
-            admin.performCommand("vertigoadmin");
-        } else if (cmd.equalsIgnoreCase("announce")) {
-            if (game.state != VertigoGame.GameState.READY) {
-                admin.sendMessage(ChatColor.RED + "No can do. The game isn't ready yet.");
-                return true;
-            }
-            if (getServer().getOnlinePlayers().size() > 0) {
-                List<Object> list = new ArrayList<>();
-                list.add(Msg.format(chatPrefix + "A game of Vertigo is about to start.\n"));
-                list.add(Msg.button(ChatColor.DARK_AQUA + "[Click here to join]", "Join this game of Vertigo.", "/vertigo"));
-                for(Player player : getServer().getOnlinePlayers()) {
-                    Msg.sendRaw(player, list);
-                }
-            }
-        } else if (cmd.equalsIgnoreCase("start")) {
-            game.start();
-        } else if (cmd.equalsIgnoreCase("end")) {
-            game.end();
-        } else if (cmd.equalsIgnoreCase("reset")) {
-            game.reset();
-        }
-        else if (cmd.equalsIgnoreCase("kickplayers")) {
-            for(Player p : game.world.getPlayers()) {
-                p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
-                if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.SPECTATOR)
-                    p.setGameMode(GameMode.ADVENTURE);
-            }
-        } else if (cmd.equalsIgnoreCase("spectate")) {
-            game.join(admin, true);
-        } else if (cmd.equalsIgnoreCase("event")) {
-            if (args.length > 2) return false;
-            if (args.length == 1) {
-                sender.sendMessage(ChatColor.YELLOW + "Event mode: " + state.event);
-                return true;
-            }
-            boolean newValue;
-            try {
-                newValue = Boolean.parseBoolean(args[1]);
-            } catch (IllegalStateException iae) {
-                sender.sendMessage("Invalid event mode: " + args[1]);
-                return true;
-            }
-            state.event = newValue;
-            saveState();
-            sender.sendMessage(ChatColor.YELLOW + "Event mode: " + state.event);
-        } else {
-            return false;
-        }
-        return true;
-    }
-
     private World loadWorld(String worldname, YamlConfiguration config) {
         WorldCreator wc = new WorldCreator(worldname);
         wc.environment(World.Environment.valueOf(config.getString("world.Environment")));
@@ -543,6 +429,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
         if ((!map_loaded || !game.isTesting()) && online.size() < 2) {
             if (map_loaded) {
+                getLogger().info("Discarding world because of online players");
                 discardWorld(game);
                 map_loaded = false;
             }
@@ -576,36 +463,38 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         }
     }
 
-    void nextWorld() {
+    protected void nextWorld() {
         if (state.worlds.isEmpty()) {
+            state.worlds = new ArrayList<>();
             state.worlds.addAll(getConfig().getStringList("maps"));
+            Collections.shuffle(state.worlds);
         }
         String worldName = state.worlds.remove(state.worlds.size() - 1);
         saveState();
         loadAndPlayWorld(worldName);
     }
 
-    private void loadAndPlayWorld(String worldName) {
+    protected void loadAndPlayWorld(String worldName) {
         VertigoGame oldGame = game;
         game = loadWorld(worldName);
         map_loaded = true;
         discardWorld(oldGame);
     }
 
-    VertigoGame loadWorld(String name) {
+    protected VertigoGame loadWorld(String name) {
         VertigoGame newGame = new VertigoGame(this);
 
         String worldName = "Vertigo_temp_" + RandomStringUtils.randomAlphabetic(10);
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(new File( this.getDataFolder() + "/maps/" + name + "/config.yml"));
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(new File(mapFolder, name + "/config.yml"));
 
-        File source = new File(this.getDataFolder() + "/maps/" + name);
+        File source = new File(mapFolder, name);
         File target = new File(getServer().getWorldContainer() + "/" + worldName);
 
         copyFileStructure(source, target);
 
         World gameWorld = loadWorld(worldName, config);
 
-        newGame.setWorld(gameWorld, config.getString("map.name"));
+        newGame.setWorld(gameWorld, name);
 
         if (newGame.setup(Bukkit.getConsoleSender())) {
             newGame.ready(Bukkit.getConsoleSender());
@@ -619,11 +508,11 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         return newGame;
     }
 
-    void discardWorld(VertigoGame theGame) {
+    protected boolean discardWorld(VertigoGame theGame) {
         getLogger().info("Discarding world " + theGame.mapName);
         theGame.shutdown();
-        if (theGame.world == null) return;
-        for(Player p : theGame.world.getPlayers()) {
+        if (theGame.world == null) return false;
+        for (Player p : theGame.world.getPlayers()) {
             theGame.leave(p);
             p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
             if (p.getGameMode() != GameMode.ADVENTURE) {
@@ -635,43 +524,101 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         if (unloaded) {
             deleteFiles(dir);
             theGame.discard();
+            return true;
         } else {
-            getLogger().warning("The game world could not be unloaded: " + game.mapName);
+            getLogger().warning("The game world could not be unloaded: " + theGame.mapName);
+            return false;
         }
     }
 
     @EventHandler
     protected void onPlayerSidebar(PlayerSidebarEvent event) {
-        if (game == null || game.shutdown) return;
-        List<VertigoPlayer> players = new ArrayList<>();
-        for (VertigoPlayer vp : game.players) {
-            if (!vp.isPlaying) continue;
-            players.add(vp);
-        }
-        Collections.sort(players, (a, b) -> Integer.compare(b.score, a.score));
         List<Component> lines = new ArrayList<>();
-        // Notify spectators very clearly at all times.
-        VertigoPlayer vertigoPlayer = game.findPlayer(event.getPlayer());
-        if (vertigoPlayer != null) {
-            if (!vertigoPlayer.isPlaying && !vertigoPlayer.wasPlaying) {
-                lines.add(Component.text("You're spectating!", NamedTextColor.YELLOW));
+        if (map_loaded && game != null && !game.shutdown) {
+            lines.add(state.event ? TOURNAMENT_TITLE : TITLE);
+            List<VertigoPlayer> players = new ArrayList<>();
+            for (VertigoPlayer vp : game.players) {
+                if (!vp.isPlaying) continue;
+                players.add(vp);
             }
-            if (vertigoPlayer.isPlaying && vertigoPlayer.order > 0) {
-                lines.add(Component.text("You jump as #" + vertigoPlayer.order, NamedTextColor.GRAY));
+            Collections.sort(players, (a, b) -> Integer.compare(b.score, a.score));
+            // Notify spectators very clearly at all times.
+            VertigoPlayer vertigoPlayer = game.findPlayer(event.getPlayer());
+            if (vertigoPlayer != null) {
+                if (!vertigoPlayer.isPlaying && !vertigoPlayer.wasPlaying) {
+                    lines.add(Component.text("You're spectating!", NamedTextColor.YELLOW));
+                }
+                if (vertigoPlayer.isPlaying && vertigoPlayer.order > 0) {
+                    lines.add(Component.text("You jump as #" + vertigoPlayer.order, NamedTextColor.GRAY));
+                }
             }
-        }
-        for (VertigoPlayer vp : players) {
-            Player player = vp.getPlayer();
-            Component name = player != null ? player.displayName() : Component.text(vp.name);
-            boolean jumping = game.currentJumper == vp;
-            lines.add(Component.join(JoinConfiguration.separator(Component.space()),
-                                     (jumping
-                                      ? Component.text("\u21E8" + vp.score, NamedTextColor.RED)
-                                      : Component.text(vp.score, NamedTextColor.AQUA)),
-                                     Component.text(vp.order, NamedTextColor.DARK_GRAY),
-                                     name));
+            int placement = 0;
+            int lastScore = -1;
+            for (VertigoPlayer vp : players) {
+                if (lastScore != vp.score) {
+                    lastScore = vp.score;
+                    placement += 1;
+                }
+                Player player = vp.getPlayer();
+                Component name = player != null ? player.displayName() : Component.text(vp.name);
+                boolean jumping = game.currentJumper == vp;
+                lines.add(Component.join(noSeparators(),
+                                         (jumping ? VanillaItems.WATER_BUCKET.component : empty()),
+                                         Glyph.toComponent("" + placement),
+                                         Component.text(Unicode.subscript(vp.score), NamedTextColor.AQUA),
+                                         space(),
+                                         name,
+                                         Component.text(Unicode.superscript(vp.order), NamedTextColor.DARK_GRAY)));
+            }
+        } else if (state.event) {
+            lines.add(TOURNAMENT_TITLE);
+            lines.add(text("Contest Stats", GRAY, ITALIC));
+            for (int i = 0; i < 10; i += 1) {
+                Highscore hi = i < highscore.size() ? highscore.get(i) : Highscore.ZERO;
+                lines.add(join(noSeparators(),
+                               (hi.placement > 0
+                                ? Glyph.toComponent("" + hi.placement)
+                                : Mytems.QUESTION_MARK.component),
+                               text(Unicode.subscript(hi.score), GOLD),
+                               space(),
+                               hi.name()));
+            }
         }
         if (lines.isEmpty()) return;
         event.add(this, Priority.HIGHEST, lines);
+    }
+
+    protected void computeHighscore() {
+        highscore.clear();
+        for (Map.Entry<UUID, Integer> entry : state.scores.entrySet()) {
+            highscore.add(new Highscore(entry.getKey(), entry.getValue()));
+        }
+        Collections.sort(highscore, (a, b) -> Integer.compare(b.score, a.score));
+        int lastScore = -1;
+        int placement = 0;
+        for (Highscore hi : highscore) {
+            if (lastScore != hi.score) {
+                lastScore = hi.score;
+                placement += 1;
+            }
+            hi.placement = placement;
+        }
+    }
+
+    protected int rewardHighscore() {
+        List<SQLTrophy> trophies = new ArrayList<>();
+        for (Highscore hi : highscore) {
+            if (hi.score <= 0) break;
+            trophies.add(new SQLTrophy(hi.uuid,
+                                       "vertigo_event",
+                                       hi.placement,
+                                       TrophyCategory.CUP,
+                                       TOURNAMENT_TITLE,
+                                       "You collected " + hi.score + " point" + (hi.score == 1 ? "" : "s")
+                                       + " at Vertigo!"));
+        }
+        if (trophies.isEmpty()) return 0;
+        Trophies.insertTrophies(trophies);
+        return trophies.size();
     }
 }
