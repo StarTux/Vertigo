@@ -149,16 +149,7 @@ public final class GameMap {
     }
 
     protected boolean isBlock(Block block) {
-        Material material = block.getType();
-        for (ItemStack item : blocks) {
-            if (item.getType() == material) {
-                // Must have skull on top.
-                if (block.getRelative(BlockFace.UP).getType() == Material.PLAYER_HEAD) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return block.getRelative(BlockFace.UP).getType() == Material.PLAYER_HEAD;
     }
 
     protected Location getJumpSpot() {
