@@ -294,7 +294,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         {
             if (!game.hasPlayerJoined(player))
             {
-                game.join(player, (game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING || game.state == VertigoGame.GameState.ENDED));
+                game.joinPlayer(player, (game.state == VertigoGame.GameState.COUNTDOWN_TO_START || game.state == VertigoGame.GameState.RUNNING || game.state == VertigoGame.GameState.ENDED));
             }
             else
             {
@@ -440,8 +440,12 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
             return;
         }
         if (map_loaded) {
-            if (game.state == VertigoGame.GameState.ENDED && game.stateTicks > 20L * 20L) {
-                nextWorld();
+            if (game.state == VertigoGame.GameState.ENDED && game.stateTicks > 20L * 30L) {
+                if (state.event || game.isTesting()) {
+                    discardWorld(game);
+                } else {
+                    nextWorld();
+                }
             } else {
                 game.onTick();
             }
@@ -499,7 +503,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         if (newGame.setup(Bukkit.getConsoleSender())) {
             newGame.ready(Bukkit.getConsoleSender());
             for (Player player : Bukkit.getOnlinePlayers()) {
-                newGame.join(player, false); // Player, isSpectator
+                newGame.joinPlayer(player, false); // Player, isSpectator
             }
             newGame.start();
         } else {
@@ -562,13 +566,13 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 Player player = vp.getPlayer();
                 Component name = player != null ? player.displayName() : Component.text(vp.name);
                 boolean jumping = game.currentJumper == vp;
-                lines.add(Component.join(noSeparators(),
-                                         (jumping ? VanillaItems.WATER_BUCKET.component : empty()),
-                                         Glyph.toComponent("" + placement),
-                                         Component.text(Unicode.subscript(vp.score), NamedTextColor.AQUA),
-                                         space(),
-                                         name,
-                                         Component.text(Unicode.superscript(vp.order), NamedTextColor.DARK_GRAY)));
+                lines.add(join(noSeparators(),
+                               (jumping ? VanillaItems.WATER_BUCKET.component : empty()),
+                               Glyph.toComponent("" + placement),
+                               Component.text(Unicode.subscript(vp.score), NamedTextColor.AQUA),
+                               space(),
+                               name,
+                               Component.text(Unicode.superscript(vp.order), NamedTextColor.DARK_GRAY)));
             }
         } else if (state.event) {
             lines.add(TOURNAMENT_TITLE);

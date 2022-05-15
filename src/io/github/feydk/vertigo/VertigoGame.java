@@ -1,12 +1,12 @@
 package io.github.feydk.vertigo;
 
-import com.cavetale.core.font.Unicode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import lombok.Getter;
 import lombok.Setter;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Difficulty;
@@ -31,7 +31,16 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
+import static com.cavetale.core.font.Unicode.subscript;
+import static com.cavetale.core.font.Unicode.superscript;
+import static com.cavetale.core.font.Unicode.tiny;
 import static io.github.feydk.vertigo.VertigoLoader.chatPrefix;
+import static net.kyori.adventure.text.Component.empty;
+import static net.kyori.adventure.text.Component.join;
+import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
+import static net.kyori.adventure.text.format.NamedTextColor.*;
+import static net.kyori.adventure.title.Title.title;
 
 @Getter
 public final class VertigoGame {
@@ -157,7 +166,7 @@ public final class VertigoGame {
         updateGamebar(0);
     }
 
-    protected void join(Player player, boolean spectator) {
+    protected void joinPlayer(Player player, boolean spectator) {
         VertigoPlayer vp = findPlayer(player);
         if (vp == null) {
             vp = new VertigoPlayer(this, player);
@@ -492,41 +501,35 @@ public final class VertigoGame {
         player.setFallDistance(0);
         player.teleport(vp.getSpawnLocation());
         int score = 1;
-        Location l = landingLocation.clone();
+        Block block = landingLocation.getBlock();
         // Find adjacent blocks to calculate score.
-        List<Block> adjacent = new ArrayList<>();
-        adjacent.add(world.getBlockAt(l.add(1, 0, 0)));
-        l = landingLocation.clone();
-        adjacent.add(world.getBlockAt(l.subtract(1, 0, 0)));
-        l = landingLocation.clone();
-        adjacent.add(world.getBlockAt(l.add(0, 0, 1)));
-        l = landingLocation.clone();
-        adjacent.add(world.getBlockAt(l.subtract(0, 0, 1)));
         int adjacentBlocks = 0;
-        for (Block block : adjacent) {
-            if (map.isBlock(block)) {
-                adjacentBlocks++;
-                score++;
+        for (BlockFace face : List.of(BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST)) {
+            if (map.isBlock(block.getRelative(face))) {
+                adjacentBlocks += 1;
             }
         }
+        int diagonalBlocks = 0;
+        for (BlockFace face : List.of(BlockFace.NORTH_EAST, BlockFace.SOUTH_EAST, BlockFace.SOUTH_WEST, BlockFace.NORTH_WEST)) {
+            if (map.isBlock(block.getRelative(face))) {
+                diagonalBlocks += 1;
+            }
+        }
+        int diagonalScore = diagonalBlocks / 2;
+        score += adjacentBlocks + diagonalScore;
         if (currentJumperPassedRing) {
             score += 3;
             map.removeRing();
         }
-        String msg = "§9Splash! §3" + player.getName() + " §6+" + score + "§7";
-        sendTitleToAllPlayers("", msg);
-        //sendActionBarToAllPlayers(msg);
-        if (adjacentBlocks > 0) {
-            msg += " (1 + adjacent blocks: " + adjacentBlocks;
-            if (currentJumperPassedRing) {
-                msg += ", golden ring: 3";
-            }
-            msg += ")";
-        } else {
-            if (currentJumperPassedRing) {
-                msg += " (1 + golden ring: 3)";
-            }
-        }
+        Component msg = join(noSeparators(),
+                             text(tiny("Splash! "), BLUE),
+                             text(player.getName(), WHITE),
+                             (adjacentBlocks == 0 ? empty() : text(tiny(" adjacent") + adjacentBlocks, GRAY)),
+                             (diagonalScore == 0 ? empty() : text(tiny(" diagonal") + diagonalScore, GRAY)),
+                             (!currentJumperPassedRing ? empty() : text(tiny(" ring") + 3, GRAY)),
+                             text(tiny(" total"), GRAY),
+                             text(score, GOLD));
+        sendTitleToAllPlayers(empty(), msg);
         sendMsgToAllPlayers(msg);
         if (currentJumperPassedRing) {
             playSoundForAllPlayers(Sound.ENTITY_PLAYER_LEVELUP);
@@ -650,8 +653,8 @@ public final class VertigoGame {
             }
             if (currentJumper != null) {
                 t += "" + ChatColor.WHITE + "Jumping: " + ChatColor.AQUA + currentJumper.name + ChatColor.GRAY
-                    + " [" + Unicode.superscript(currentJumperIndex + 1)
-                    + "/" + Unicode.subscript(jumpers.size()) + "] ";
+                    + " [" + superscript(currentJumperIndex + 1)
+                    + "/" + subscript(jumpers.size()) + "] ";
             }
             plugin.gamebar.setTitle(t);
         } else if (state == GameState.ENDED) {
@@ -678,12 +681,24 @@ public final class VertigoGame {
         }
     }
 
+    private void sendMsgToAllPlayers(Component msg) {
+        for (Player player : world.getPlayers()) {
+            player.sendMessage(msg);
+        }
+    }
+
     private void sendTitleToAllPlayers(String title, String subtitle) {
         for (VertigoPlayer vp : players) {
             Player player = vp.getPlayer();
             if (player != null) {
                 player.sendTitle(title, subtitle, -1, -1, -1);
             }
+        }
+    }
+
+    private void sendTitleToAllPlayers(Component title, Component subtitle) {
+        for (Player player : world.getPlayers()) {
+            player.showTitle(title(title, subtitle));
         }
     }
 
