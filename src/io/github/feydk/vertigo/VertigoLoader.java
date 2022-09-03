@@ -1,5 +1,7 @@
 package io.github.feydk.vertigo;
 
+import com.cavetale.core.event.hud.PlayerHudEvent;
+import com.cavetale.core.event.hud.PlayerHudPriority;
 import com.cavetale.core.font.Unicode;
 import com.cavetale.core.font.VanillaItems;
 import com.cavetale.fam.trophy.SQLTrophy;
@@ -7,8 +9,6 @@ import com.cavetale.fam.trophy.Trophies;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.font.Glyph;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
-import com.cavetale.sidebar.PlayerSidebarEvent;
-import com.cavetale.sidebar.Priority;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -20,10 +20,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.apache.commons.lang.RandomStringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -487,8 +488,11 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
 
     protected VertigoGame loadWorld(String name) {
         VertigoGame newGame = new VertigoGame(this);
-
-        String worldName = "Vertigo_temp_" + RandomStringUtils.randomAlphabetic(10);
+        String worldName = "Vertigo_temp_";
+        Random random = ThreadLocalRandom.current();
+        for (int i = 0; i < 10; i += 1) {
+            worldName += "" + random.nextInt(10);
+        }
         YamlConfiguration config = YamlConfiguration.loadConfiguration(new File(mapFolder, name + "/config.yml"));
 
         File source = new File(mapFolder, name);
@@ -536,7 +540,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    protected void onPlayerSidebar(PlayerSidebarEvent event) {
+    protected void onPlayerHud(PlayerHudEvent event) {
         List<Component> lines = new ArrayList<>();
         if (map_loaded && game != null && !game.shutdown) {
             lines.add(state.event ? TOURNAMENT_TITLE : TITLE);
@@ -589,7 +593,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
             }
         }
         if (lines.isEmpty()) return;
-        event.add(this, Priority.HIGHEST, lines);
+        event.sidebar(PlayerHudPriority.HIGHEST, lines);
     }
 
     protected void computeHighscore() {
