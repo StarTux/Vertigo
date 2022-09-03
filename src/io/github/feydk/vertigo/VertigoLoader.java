@@ -4,6 +4,7 @@ import com.cavetale.core.event.hud.PlayerHudEvent;
 import com.cavetale.core.event.hud.PlayerHudPriority;
 import com.cavetale.core.font.Unicode;
 import com.cavetale.core.font.VanillaItems;
+import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.fam.trophy.SQLTrophy;
 import com.cavetale.fam.trophy.Trophies;
 import com.cavetale.mytems.Mytems;
@@ -64,6 +65,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
     protected BossBar gamebar;
     protected File mapFolder;
     protected List<Highscore> highscore = new ArrayList<>();
+    protected List<Component> highscoreLines = new ArrayList<>();
     protected static final Component TITLE = join(noSeparators(),
                                                   VanillaItems.WATER_BUCKET.component,
                                                   text("Vertigo", AQUA));
@@ -580,53 +582,23 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
             }
         } else if (state.event) {
             lines.add(TOURNAMENT_TITLE);
-            lines.add(text("Contest Stats", GRAY, ITALIC));
-            for (int i = 0; i < 10; i += 1) {
-                Highscore hi = i < highscore.size() ? highscore.get(i) : Highscore.ZERO;
-                lines.add(join(noSeparators(),
-                               (hi.placement > 0
-                                ? Glyph.toComponent("" + hi.placement)
-                                : Mytems.QUESTION_MARK.component),
-                               text(Unicode.subscript(hi.score), GOLD),
-                               space(),
-                               hi.name()));
-            }
+            lines.addAll(highscoreLines);
         }
         if (lines.isEmpty()) return;
         event.sidebar(PlayerHudPriority.HIGHEST, lines);
     }
 
     protected void computeHighscore() {
-        highscore.clear();
-        for (Map.Entry<UUID, Integer> entry : state.scores.entrySet()) {
-            highscore.add(new Highscore(entry.getKey(), entry.getValue()));
-        }
-        Collections.sort(highscore, (a, b) -> Integer.compare(b.score, a.score));
-        int lastScore = -1;
-        int placement = 0;
-        for (Highscore hi : highscore) {
-            if (lastScore != hi.score) {
-                lastScore = hi.score;
-                placement += 1;
-            }
-            hi.placement = placement;
-        }
+        highscore = Highscore.of(state.scores);
+        highscoreLines = Highscore.sidebar(highscore, TrophyCategory.VERTIGO);
     }
 
     protected int rewardHighscore() {
-        List<SQLTrophy> trophies = new ArrayList<>();
-        for (Highscore hi : highscore) {
-            if (hi.score <= 0) break;
-            trophies.add(new SQLTrophy(hi.uuid,
-                                       "vertigo_event",
-                                       hi.placement,
-                                       TrophyCategory.CUP,
-                                       TOURNAMENT_TITLE,
-                                       "You collected " + hi.score + " point" + (hi.score == 1 ? "" : "s")
-                                       + " at Vertigo!"));
-        }
-        if (trophies.isEmpty()) return 0;
-        Trophies.insertTrophies(trophies);
-        return trophies.size();
+        return Highscore.reward(state.scores,
+                                "vertigo_event",
+                                TrophyCategory.VERTIGO,
+                                TOURNAMENT_TITLE,
+                                hi -> "You collected " + hi.score + " point" + (hi.score == 1 ? "" : "s")
+                                + " at Vertigo!");
     }
 }
