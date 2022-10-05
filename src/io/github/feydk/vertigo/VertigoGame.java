@@ -23,6 +23,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Skull;
+import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -458,7 +459,8 @@ public final class VertigoGame {
         }
         Location l = event.getTo();
         // Check if player landed in water.
-        if (l.getBlock().getType() == Material.WATER) {
+        final Block block = l.getBlock();
+        if (block.getType() == Material.WATER && block.getBlockData() instanceof Levelled level && level.getLevel() == 0) {
             playerLandedInWater(player, l);
         }
     }
