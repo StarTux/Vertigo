@@ -38,11 +38,11 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
             .completers(CommandArgCompleter.supplyList(() -> List.of(plugin.mapFolder.list())))
             .senderCaller(this::test);
         rootNode.addChild("stop").denyTabCompletion()
-            .description("Discard the game")
+            .description("Stop the game")
             .senderCaller(this::stop);
-        rootNode.addChild("discard").denyTabCompletion()
-            .description("Discard the map")
-            .senderCaller(this::discard);
+        rootNode.addChild("forcewin").denyTabCompletion()
+            .description("Force a winner")
+            .senderCaller(this::forcewin);
         rootNode.addChild("event").arguments("true|false")
             .description("Set event mode")
             .completers(CommandArgCompleter.list("true", "false"))
@@ -113,7 +113,7 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
         return true;
     }
 
-    private void stop(CommandSender sender) {
+    private void forcewin(CommandSender sender) {
         if (plugin.game == null || !plugin.map_loaded) {
             throw new CommandWarn("There is no map loaded!");
         }
@@ -121,7 +121,7 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
         sender.sendMessage(text("Game stopped", AQUA));
     }
 
-    private void discard(CommandSender sender) {
+    private void stop(CommandSender sender) {
         if (plugin.game == null || !plugin.map_loaded) {
             throw new CommandWarn("There is no map loaded!");
         }
