@@ -1,5 +1,6 @@
 package io.github.feydk.vertigo;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -41,6 +42,7 @@ import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
+import static net.kyori.adventure.title.Title.Times.times;
 import static net.kyori.adventure.title.Title.title;
 
 @Getter
@@ -419,7 +421,12 @@ public final class VertigoGame {
         String[] strings = {"It's your turn.", "You're up!", "You're next."};
         String[] strings2 = {"Good luck ツ", "Don't break a leg!", "Geronimoooo!"};
         if (player != null) {
-            player.sendTitle("", "§6" + strings[r.nextInt(strings.length)] + " " + strings2[r.nextInt(strings2.length)], -1, -1, -1);
+            Component msg = text(strings[r.nextInt(strings.length)] + " " + strings2[r.nextInt(strings2.length)], GOLD);
+            player.sendMessage(msg);
+            player.showTitle(title(empty(), msg,
+                                   times(Duration.ofSeconds(0),
+                                         Duration.ofSeconds(1),
+                                         Duration.ofSeconds(0))));
             player.playSound(player.getEyeLocation(), Sound.BLOCK_BELL_USE, SoundCategory.MASTER, 1, 1);
         }
         jumperTicks = 0;
