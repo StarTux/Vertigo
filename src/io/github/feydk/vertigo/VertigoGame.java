@@ -1,10 +1,14 @@
 package io.github.feydk.vertigo;
 
+import com.cavetale.core.event.minigame.MinigameFlag;
+import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
+import com.cavetale.core.event.minigame.MinigameMatchType;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import net.kyori.adventure.text.Component;
@@ -70,6 +74,7 @@ public final class VertigoGame {
     private boolean currentJumperPassedRing;
     private boolean moreThanOnePlayed;
     private String winnerName;
+    private List<UUID> winnerUuids = List.of();
     @Setter private boolean testing = false;
 
     // Stuff for keeping track of rounds.
@@ -207,6 +212,13 @@ public final class VertigoGame {
 
     protected void end() {
         findWinner();
+        if (!testing) {
+            MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MinigameMatchType.VERTIGO);
+            if (plugin.state.event) event.addFlags(MinigameFlag.EVENT);
+            for (VertigoPlayer vp : players) event.addPlayerUuid(vp.uuid);
+            event.addWinnerUuids(winnerUuids);
+            event.callEvent();
+        }
         state = GameState.ENDED;
         stateChange(GameState.RUNNING, state);
     }
@@ -764,6 +776,7 @@ public final class VertigoGame {
 
     private void findWinner() {
         List<VertigoPlayer> winners = getWinners();
+        for (var it : winners) winnerUuids.add(it.uuid);
         winnerName = "";
         if (winners.size() == 1) {
             winnerName = winners.get(0).name;
