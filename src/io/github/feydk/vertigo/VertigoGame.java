@@ -74,7 +74,7 @@ public final class VertigoGame {
     private boolean currentJumperPassedRing;
     private boolean moreThanOnePlayed;
     private String winnerName;
-    private List<UUID> winnerUuids = List.of();
+    private List<UUID> winnerUuids = new ArrayList<>();
     @Setter private boolean testing = false;
 
     // Stuff for keeping track of rounds.
