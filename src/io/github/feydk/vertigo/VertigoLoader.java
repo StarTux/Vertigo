@@ -10,6 +10,7 @@ import com.cavetale.fam.trophy.Trophies;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.font.Glyph;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
+import com.cavetale.server.ServerPlugin;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -47,10 +48,12 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
+import static com.cavetale.core.font.VanillaItems.WATER_BUCKET;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
@@ -67,7 +70,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
     protected List<Highscore> highscore = new ArrayList<>();
     protected List<Component> highscoreLines = new ArrayList<>();
     protected static final Component TITLE = join(noSeparators(),
-                                                  VanillaItems.WATER_BUCKET.component,
+                                                  WATER_BUCKET.component,
                                                   text("Vertigo", AQUA));
     protected static final Component TOURNAMENT_TITLE = join(noSeparators(),
                                                              TITLE,
@@ -108,6 +111,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 }
             }
         }
+        ServerPlugin.getInstance().setServerSidebarLines(null);
     }
 
     void loadState() {
@@ -440,6 +444,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
             gamebar.setTitle(ChatColor.DARK_RED + "Waiting for players");
             gamebar.setProgress(0);
             gamebar.setColor(BarColor.RED);
+            ServerPlugin.getInstance().setServerSidebarLines(null);
             return;
         }
         if (map_loaded) {
@@ -449,8 +454,20 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 } else {
                     nextWorld();
                 }
+                if (game.isTesting()) {
+                    ServerPlugin.getInstance().setServerSidebarLines(null);
+                } else {
+                    ServerPlugin.getInstance().setServerSidebarLines(List.of(textOfChildren(WATER_BUCKET, text("/vertigo", YELLOW)),
+                                                                             textOfChildren(WATER_BUCKET, text("Game Over", AQUA))));
+                }
             } else {
                 game.onTick();
+                if (game.isTesting()) {
+                    ServerPlugin.getInstance().setServerSidebarLines(null);
+                } else {
+                    ServerPlugin.getInstance().setServerSidebarLines(List.of(textOfChildren(WATER_BUCKET, text("/vertigo")),
+                                                                             textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " playing", AQUA))));
+                }
             }
         } else {
             if (!state.event) {
@@ -466,6 +483,8 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 gamebar.setProgress(Math.max(0, Math.min(1, progress)));
                 gamebar.setColor(BarColor.BLUE);
                 gamebar.setTitle("Get ready...");
+                ServerPlugin.getInstance().setServerSidebarLines(List.of(textOfChildren(WATER_BUCKET, text("/vertigo")),
+                                                                         textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " waiting", AQUA))));
             }
         }
     }
@@ -573,7 +592,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 Component name = player != null ? player.displayName() : Component.text(vp.name);
                 boolean jumping = game.currentJumper == vp;
                 lines.add(join(noSeparators(),
-                               (jumping ? VanillaItems.WATER_BUCKET.component : empty()),
+                               (jumping ? WATER_BUCKET.component : empty()),
                                Glyph.toComponent("" + placement),
                                Component.text(Unicode.subscript(vp.score), NamedTextColor.AQUA),
                                space(),

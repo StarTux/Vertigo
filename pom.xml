@@ -71,6 +71,14 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- Server -->
+    <dependency>
+      <groupId>com.cavetale.server</groupId>
+      <artifactId>server</artifactId>
+      <version>0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+
   </dependencies>
   <build>
     <finalName>${project.name}</finalName>

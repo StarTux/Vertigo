@@ -821,4 +821,12 @@ public final class VertigoGame {
         event.addWinnerUuids(winnerUuids);
         event.callEvent();
     }
+
+    public int getPlayerCount() {
+        int result = 0;
+        for (VertigoPlayer it : players) {
+            if (it.isPlaying) result += 1;
+        }
+        return result;
+    }
 }
