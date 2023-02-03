@@ -212,13 +212,7 @@ public final class VertigoGame {
 
     protected void end() {
         findWinner();
-        if (!testing) {
-            MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MinigameMatchType.VERTIGO);
-            if (plugin.state.event) event.addFlags(MinigameFlag.EVENT);
-            for (VertigoPlayer vp : players) event.addPlayerUuid(vp.uuid);
-            event.addWinnerUuids(winnerUuids);
-            event.callEvent();
-        }
+        callMatchEvent();
         state = GameState.ENDED;
         stateChange(GameState.RUNNING, state);
     }
@@ -266,6 +260,7 @@ public final class VertigoGame {
             }
             if (newState == GameState.ENDED) {
                 findWinner();
+                callMatchEvent();
             }
         }
         if (newState == null) {
@@ -816,5 +811,14 @@ public final class VertigoGame {
             }
             players = list;
         }
+    }
+
+    private void callMatchEvent() {
+        if (testing) return;
+        MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MinigameMatchType.VERTIGO);
+        if (plugin.state.event) event.addFlags(MinigameFlag.EVENT);
+        for (VertigoPlayer vp : players) event.addPlayerUuid(vp.uuid);
+        event.addWinnerUuids(winnerUuids);
+        event.callEvent();
     }
 }
