@@ -5,12 +5,8 @@ import com.cavetale.core.event.hud.PlayerHudPriority;
 import com.cavetale.core.font.Unicode;
 import com.cavetale.core.font.VanillaItems;
 import com.cavetale.fam.trophy.Highscore;
-import com.cavetale.fam.trophy.SQLTrophy;
-import com.cavetale.fam.trophy.Trophies;
-import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.font.Glyph;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
-import com.cavetale.server.ServerPlugin;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -21,9 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -49,6 +43,7 @@ import org.bukkit.event.player.*;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 import static com.cavetale.core.font.VanillaItems.WATER_BUCKET;
+import static com.cavetale.server.ServerPlugin.serverSidebar;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
@@ -111,7 +106,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 }
             }
         }
-        ServerPlugin.getInstance().setServerSidebarLines(null);
+        serverSidebar(null);
     }
 
     void loadState() {
@@ -444,7 +439,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
             gamebar.setTitle(ChatColor.DARK_RED + "Waiting for players");
             gamebar.setProgress(0);
             gamebar.setColor(BarColor.RED);
-            ServerPlugin.getInstance().setServerSidebarLines(null);
+            serverSidebar(null);
             return;
         }
         if (map_loaded) {
@@ -454,19 +449,16 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 } else {
                     nextWorld();
                 }
-                if (game.isTesting()) {
-                    ServerPlugin.getInstance().setServerSidebarLines(null);
-                } else {
-                    ServerPlugin.getInstance().setServerSidebarLines(List.of(textOfChildren(WATER_BUCKET, text("/vertigo", YELLOW)),
-                                                                             textOfChildren(WATER_BUCKET, text("Game Over", AQUA))));
-                }
             } else {
                 game.onTick();
                 if (game.isTesting()) {
-                    ServerPlugin.getInstance().setServerSidebarLines(null);
+                    serverSidebar(null);
+                } else if (game.state == VertigoGame.GameState.ENDED) {
+                    serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo", YELLOW)),
+                                          textOfChildren(WATER_BUCKET, text("Game Over", AQUA))));
                 } else {
-                    ServerPlugin.getInstance().setServerSidebarLines(List.of(textOfChildren(WATER_BUCKET, text("/vertigo")),
-                                                                             textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " playing", AQUA))));
+                    serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo")),
+                                          textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " playing", AQUA))));
                 }
             }
         } else {
@@ -483,8 +475,8 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 gamebar.setProgress(Math.max(0, Math.min(1, progress)));
                 gamebar.setColor(BarColor.BLUE);
                 gamebar.setTitle("Get ready...");
-                ServerPlugin.getInstance().setServerSidebarLines(List.of(textOfChildren(WATER_BUCKET, text("/vertigo")),
-                                                                         textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " waiting", AQUA))));
+                serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo")),
+                                      textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " waiting", AQUA))));
             }
         }
     }
