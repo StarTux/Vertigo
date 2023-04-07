@@ -1,11 +1,13 @@
 package io.github.feydk.vertigo;
 
 import java.util.UUID;
+import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
+@Getter
 class VertigoPlayer {
     private VertigoGame game;
     protected final UUID uuid;

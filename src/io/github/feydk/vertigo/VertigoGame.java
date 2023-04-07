@@ -41,6 +41,7 @@ import static com.cavetale.core.font.Unicode.subscript;
 import static com.cavetale.core.font.Unicode.superscript;
 import static com.cavetale.core.font.Unicode.tiny;
 import static io.github.feydk.vertigo.VertigoLoader.chatPrefix;
+import static java.util.Comparator.comparing;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.text;
@@ -384,7 +385,6 @@ public final class VertigoGame {
                     jumpers.add(vp);
                 }
             }
-            Collections.shuffle(jumpers);
             currentJumperIndex = 0;
         } else if (newState == GameState.RUNNING) {
             startRound();
@@ -407,6 +407,8 @@ public final class VertigoGame {
 
     private void startRound() {
         int order = 1;
+        Collections.shuffle(jumpers);
+        Collections.sort(jumpers, comparing(VertigoPlayer::getScore));
         for (VertigoPlayer vp : jumpers) {
             vp.order = order++;
         }
