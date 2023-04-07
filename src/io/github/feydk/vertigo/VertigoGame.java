@@ -332,8 +332,8 @@ public final class VertigoGame {
         updateGamebar(progress);
         if (currentJumper != null && !currentJumperHasJumped) {
             jumperTicks++;
-            // 10 seconds to jump.
-            long total = 10 * 20;
+            // 20 seconds to jump.
+            long total = 20 * 20;
             if (jumperTicks >= total + 20) {
                 playerTimedOut(currentJumper);
                 // Player didn't jump in time.
