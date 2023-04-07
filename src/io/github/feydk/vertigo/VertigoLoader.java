@@ -467,7 +467,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
             } else {
                 ticksWaited = 0;
             }
-            int ticksToWait = 20 * 30;
+            int ticksToWait = 20 * 60;
             if (ticksWaited >= ticksToWait) {
                 nextWorld();
             } else {
