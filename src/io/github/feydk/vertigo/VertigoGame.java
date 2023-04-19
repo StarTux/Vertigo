@@ -32,6 +32,7 @@ import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
@@ -444,7 +445,7 @@ public final class VertigoGame {
 
     protected void playerDamage(Player player, EntityDamageEvent event) {
         // Player is below jump threshold and took fall damage. Ie he didn't land in water.
-        if (event.getCause() == EntityDamageEvent.DamageCause.FALL) {
+        if (event.getCause() == DamageCause.FALL || event.getCause() == DamageCause.VOID) {
             playerLandedBadly(player, player.getLocation());
         }
     }
