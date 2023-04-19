@@ -476,7 +476,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 gamebar.setColor(BarColor.BLUE);
                 gamebar.setTitle("Get ready...");
                 serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo")),
-                                      textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " waiting", AQUA))));
+                                      textOfChildren(WATER_BUCKET, text(online.size() + " waiting", AQUA))));
             }
         }
     }
