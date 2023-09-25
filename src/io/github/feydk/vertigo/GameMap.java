@@ -44,9 +44,13 @@ public final class GameMap {
 
     // Stuff used for boundaries.
     private List<Location> boundaries = new ArrayList<>();
-    private double minX, minZ, maxX, maxZ, maxY;
+    private double minX;
+    private double minZ;
+    private double maxX;
+    private double maxZ;
+    private double maxY;
 
-    protected GameMap(int chunkRadius, VertigoGame game) {
+    protected GameMap(final int chunkRadius, final VertigoGame game) {
         this.chunkRadius = chunkRadius;
         this.game = game;
         ringChance = game.plugin.getConfig().getDouble("general.ringChance");
@@ -260,30 +264,29 @@ public final class GameMap {
                 Chest chestBlock = (Chest) state;
                 if (chestBlock.getCustomName() != null && chestBlock.getCustomName().equalsIgnoreCase("[blocks]")) {
                     Inventory inv = chestBlock.getInventory();
-                    for (ItemStack item : inv.getContents())
-                    {
-                        if (item != null)
+                    for (ItemStack item : inv.getContents()) {
+                        if (item != null) {
                             blocks.add(item);
+                        }
                     }
                     inv.clear();
                     state.getBlock().setType(Material.AIR);
                 }
             } else if (state instanceof Sign) {
-                Block sign_block = state.getBlock();
-                BlockData data = sign_block.getBlockData();
+                Block signBlock = state.getBlock();
+                BlockData data = signBlock.getBlockData();
                 Block attached = null;
                 if (data instanceof Directional) {
-                    Directional dir = (Directional)data;
-                    attached = sign_block.getRelative(dir.getFacing().getOppositeFace());
+                    Directional dir = (Directional) data;
+                    attached = signBlock.getRelative(dir.getFacing().getOppositeFace());
                 }
-                String firstLine = ((Sign)state).getLine(0).toLowerCase();
+                String firstLine = ((Sign) state).getLine(0).toLowerCase();
                 if (firstLine.startsWith("[") && firstLine.endsWith("]")) {
                     if (firstLine.equals("[spawn]")) {
                         Location location = state.getBlock().getLocation().add(.5, .5, .5);
                         Vector lookAt = world.getSpawnLocation().toVector().subtract(location.toVector());
                         location.setDirection(lookAt);
                         spawnLocations.add(location);
-
                         state.getBlock().setType(Material.AIR);
                     } else if (firstLine.equals("[jump]")) {
                         Location location = state.getBlock().getLocation().add(.5, .5, .5);
@@ -292,68 +295,50 @@ public final class GameMap {
                         Vector lookAt = spawn.toVector().subtract(location.toVector());
                         location.setDirection(lookAt);
                         jumpSpots.add(location);
-
                         state.getBlock().setType(Material.AIR);
                     } else if (firstLine.equals("[threshold]")) {
                         jumpThreshold = state.getBlock().getLocation();
-
                         state.getBlock().setType(Material.AIR);
                     } else if (firstLine.equals("[water]")) {
-                        String t = ((Sign)state).getLine(1);
+                        String t = ((Sign) state).getLine(1);
                         if (!t.isEmpty()) {
                             try {
                                 waterCount = Integer.parseInt(t);
-                            }
-                            catch(NumberFormatException ignored) { }
+                            } catch (NumberFormatException ignored) { }
                         }
                         state.getBlock().setType(Material.AIR);
                     } else if (firstLine.equals("[boundary]")) {
                         // Boundaries.
-                        Location location = sign_block.getLocation();
+                        Location location = signBlock.getLocation();
                         boundaries.add(location);
-
                         state.getBlock().setType(Material.AIR);
                         //attachedBlock.setType(Material.AIR);
                     } else if (firstLine.equals("[credits]")) {
                         for (int i = 1; i < 4; ++i) {
                             String credit = ((Sign) state).getLine(i);
-
-                            if (!credit.isEmpty())
+                            if (!credit.isEmpty()) {
                                 credits.add(credit);
+                            }
                         }
-
                         state.getBlock().setType(Material.AIR);
-
                         //if (attached != null)
                         //    attached.setType(Material.AIR);
-                    }
-                    else if (firstLine.equals("[time]"))
-                    {
+                    } else if (firstLine.equals("[time]")) {
                         String t = ((Sign) state).getLine(1);
-
-                        if (!t.isEmpty())
-                        {
-                            try
-                            {
+                        if (!t.isEmpty()) {
+                            try {
                                 time = Integer.parseInt(t);
-                            }
-                            catch(NumberFormatException ignored)
-                            {}
+                            } catch (NumberFormatException ignored) { }
                         }
-
-                        if (time > -1)
-                        {
+                        if (time > -1) {
                             String l = ((Sign) state).getLine(2);
-
-                            if (!l.isEmpty())
-                            {
-                                if (l.toLowerCase().equals("lock"))
+                            if (!l.isEmpty()) {
+                                if (l.toLowerCase().equals("lock")) {
                                     lockTime = true;
+                                }
                             }
                         }
-
                         state.getBlock().setType(Material.AIR);
-
                         //if (attached != null)
                         //    attached.setType(Material.AIR);
                     }

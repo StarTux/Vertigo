@@ -79,6 +79,14 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- Creative -->
+    <dependency>
+      <groupId>com.winthier.creative</groupId>
+      <artifactId>creative</artifactId>
+      <version>0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+
   </dependencies>
   <build>
     <finalName>${project.name}</finalName>

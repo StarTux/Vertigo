@@ -45,7 +45,7 @@ class VertigoPlayer {
     }
 
     Location getSpawnLocation() {
-        if(spawnLocation == null) {
+        if (spawnLocation == null) {
             spawnLocation = game.map.dealSpawnLocation();
         }
         return spawnLocation;

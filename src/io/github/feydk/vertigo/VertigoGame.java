@@ -3,6 +3,7 @@ package io.github.feydk.vertigo;
 import com.cavetale.core.event.minigame.MinigameFlag;
 import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
 import com.cavetale.core.event.minigame.MinigameMatchType;
+import com.cavetale.mytems.Mytems;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,7 +14,6 @@ import lombok.Getter;
 import lombok.Setter;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
@@ -41,13 +41,14 @@ import org.bukkit.util.Vector;
 import static com.cavetale.core.font.Unicode.subscript;
 import static com.cavetale.core.font.Unicode.superscript;
 import static com.cavetale.core.font.Unicode.tiny;
-import static io.github.feydk.vertigo.VertigoLoader.chatPrefix;
 import static java.util.Comparator.comparing;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
+import static net.kyori.adventure.text.format.TextDecoration.*;
 import static net.kyori.adventure.title.Title.Times.times;
 import static net.kyori.adventure.title.Title.title;
 
@@ -114,13 +115,13 @@ public final class VertigoGame {
 
     protected boolean setup(CommandSender admin) {
         if (world == null) {
-            admin.sendMessage(ChatColor.RED + "You must load a world first.");
+            admin.sendMessage(text("You must load a world first.", RED));
             return false;
         }
         shutdown = false;
         players.clear();
         jumpers.clear();
-        updateGamebar(0);
+        updateBossBar(0);
         world.setDifficulty(Difficulty.PEACEFUL);
         world.setPVP(false);
         world.setGameRule(GameRule.DO_TILE_DROPS, false);
@@ -154,7 +155,7 @@ public final class VertigoGame {
             }
             state = GameState.INIT;
         } else {
-            admin.sendMessage(ChatColor.RED + "The game could not be set up. Check console for hints.");
+            admin.sendMessage(text("The game could not be set up. Check console for hints.", RED));
         }
         return ready;
     }
@@ -169,11 +170,11 @@ public final class VertigoGame {
 
     protected void ready(CommandSender admin) {
         if (state != GameState.INIT) {
-            admin.sendMessage(ChatColor.RED + "No can do. Game hasn't been set up yet.");
+            admin.sendMessage(text("No can do. Game hasn't been set up yet.", RED));
             return;
         }
         state = GameState.READY;
-        updateGamebar(0);
+        updateBossBar(0);
     }
 
     protected void joinPlayer(Player player, boolean spectator) {
@@ -193,7 +194,7 @@ public final class VertigoGame {
         player.setGameMode(GameMode.SPECTATOR);
         player.teleport(vp.getSpawnLocation());
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
-        player.sendTitle("Welcome to Vertigo", "", -1, -1, -1);
+        player.showTitle(title(text("Welcome to Vertigo", GREEN), empty()));
         if (plugin.state.event && !testing) {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + player.getName());
         }
@@ -302,7 +303,7 @@ public final class VertigoGame {
     // Game is ready to accept players.
     private GameState tickReady(long theTicks) {
         if (theTicks % (20) == 0) {
-            updateGamebar(0);
+            updateBossBar(0);
         }
         return null;
     }
@@ -312,13 +313,13 @@ public final class VertigoGame {
         long timeLeft = (countdownToStartDuration * 20) - theTicks;
         long seconds = timeLeft / 20;
         double progress = (((double) countdownToStartDuration * 20) - timeLeft) / ((double) countdownToStartDuration * 20);
-        updateGamebar(progress);
+        updateBossBar(progress);
         if (timeLeft % 20L == 0) {
             if (seconds == 0) {
-                sendTitleToAllPlayers("", "");
+                sendTitleToAllPlayers(empty(), empty());
                 playSoundForAllPlayers(Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST);
             } else if (seconds <= 5) {
-                sendTitleToAllPlayers(ChatColor.GREEN + "Get ready!", ChatColor.GREEN + "Game starts in " + seconds + " seconds");
+                sendTitleToAllPlayers(text("Get ready!", GREEN), text("Game starts in " + seconds + " seconds", GREEN));
                 playNoteForAllPlayers(Instrument.PIANO, new Note((int) seconds));
             }
         }
@@ -330,7 +331,7 @@ public final class VertigoGame {
 
     private GameState tickRunning(long theTicks) {
         double progress = (double) currentJumperIndex / jumpers.size();
-        updateGamebar(progress);
+        updateBossBar(progress);
         if (currentJumper != null && !currentJumperHasJumped) {
             jumperTicks++;
             // 20 seconds to jump.
@@ -342,9 +343,13 @@ public final class VertigoGame {
                 if (jumperTicks % 20 == 0) {
                     long ticksLeft = total - jumperTicks;
                     long secsLeft = ticksLeft / 20;
-                    String msg = "§f You have §3" + secsLeft + " §fsecond" + (secsLeft > 1 ? "s" : "") + " to jump";
+                    Component msg = textOfChildren(text(" You have ", WHITE),
+                                                   text(secsLeft, DARK_AQUA),
+                                                   text(" second" + (secsLeft > 1 ? "s" : "") + " to jump", WHITE));
                     if (secsLeft <= 3) {
-                        msg = "§4 You have §c" + secsLeft + " §4second" + (secsLeft > 1 ? "s" : "") + " to jump";
+                        msg = textOfChildren(text(" You have ", DARK_RED),
+                                             text(secsLeft, RED),
+                                             text(" second" + (secsLeft > 1 ? "s" : "") + " to jump", DARK_RED));
                     }
                     Player player = currentJumper.getPlayer();
                     if (player != null) player.sendActionBar(msg);
@@ -355,14 +360,14 @@ public final class VertigoGame {
     }
 
     private GameState tickEnded(long theTicks) {
-        updateGamebar(1);
+        updateBossBar(1);
         long timeLeft = (endDuration * 20) - theTicks;
         // Every 5 seconds, show/refresh the winner title announcement.
         if (timeLeft > 0 && (timeLeft % (20 * 5) == 0 || theTicks == 1)) {
             if (!winnerName.equals("")) {
-                sendTitleToAllPlayers(ChatColor.AQUA + winnerName, ChatColor.WHITE + "Wins the Game!");
+                sendTitleToAllPlayers(text(winnerName, AQUA), text("Wins the Game!", WHITE));
             } else {
-                sendTitleToAllPlayers(ChatColor.AQUA + "Draw!", ChatColor.WHITE + "Nobody wins");
+                sendTitleToAllPlayers(text("Draw!", AQUA), text("Nobody wins", WHITE));
             }
         }
         return null;
@@ -391,12 +396,12 @@ public final class VertigoGame {
             startRound();
         } else if (newState == GameState.ENDED) {
             if (!winnerName.equals("")) {
-                sendMsgToAllPlayers(chatPrefix + "&b" + winnerName + " wins the game!");
+                sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(winnerName + " wins the game!", BLUE)));
                 if (plugin.state.event && !testing) {
                     Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winnerName + " Splash Jumper WaterBucket");
                 }
             } else {
-                sendMsgToAllPlayers(chatPrefix + "&bDraw! Nobody wins.");
+                sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text("Draw! Nobody wins.", AQUA)));
             }
             playSoundForAllPlayers(Sound.UI_TOAST_CHALLENGE_COMPLETE);
             for (VertigoPlayer vp : players) {
@@ -417,7 +422,10 @@ public final class VertigoGame {
         map.removeRing();
         if (map.spawnRing()) {
             playSoundForAllPlayers(Sound.BLOCK_BEACON_ACTIVATE);
-            sendMsgToAllPlayers(chatPrefix + "§fA §6golden ring §fhas appeared. Jump through it to earn bonus points!");
+            sendMsgToAllPlayers(textOfChildren(plugin.TITLE,
+                                               text("A ", WHITE),
+                                               text("golden ring ", GOLD),
+                                               text("has appeared. Jump through it to earn bonus points!", WHITE)));
         }
         currentJumperIndex = 0;
         onPlayerTurn(jumpers.get(currentJumperIndex));
@@ -461,7 +469,7 @@ public final class VertigoGame {
         }
         if (!currentJumperHasJumped) {
             currentJumperHasJumped = true;
-            player.sendActionBar("");
+            player.sendActionBar(empty());
         }
         if (map.currentRingCenter != null && !currentJumperPassedRing) {
             int rx = map.currentRingCenter.getBlockX();
@@ -485,14 +493,14 @@ public final class VertigoGame {
     private void playerLandedBadly(Player player, Location landingLocation) {
         VertigoPlayer vp = findPlayer(player);
         if (vp == null) return;
-        player.sendActionBar("");
+        player.sendActionBar(empty());
         world.spawnParticle(Particle.EXPLOSION_LARGE, landingLocation, 50, .5f, .5f, .5f, .5f);
         vp.setSpectator();
         player.setVelocity(new Vector(0, 0, 0));
         player.setFallDistance(0);
         player.teleport(vp.getSpawnLocation());
         //player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
-        String msg = "§cSplat! §3" + player.getName();
+        Component msg = textOfChildren(text("Splat! ", RED), text(player.getName(), DARK_AQUA));
         int score = 0;
         if (currentJumperPassedRing) {
             score += 1;
@@ -503,9 +511,9 @@ public final class VertigoGame {
                 plugin.saveState();
             }
             map.removeRing();
-            msg = "§cSplat! §3" + player.getName() + " §6+" + score + " point";
+            msg = textOfChildren(text("Splat! ", RED), text(player.getName() + " ", DARK_AQUA), text(score + " point", GOLD));
         }
-        sendTitleToAllPlayers("", msg);
+        sendTitleToAllPlayers(empty(), msg);
         sendMsgToAllPlayers(msg);
         playSoundForAllPlayers(Sound.ENTITY_PLAYER_BIG_FALL);
         callNextJumper();
@@ -514,7 +522,7 @@ public final class VertigoGame {
     private void playerLandedInWater(Player player, Location landingLocation) {
         VertigoPlayer vp = findPlayer(player);
         if (vp == null) return;
-        player.sendActionBar("");
+        player.sendActionBar(empty());
         vp.setSpectator();
         player.setVelocity(new Vector(0, 0, 0));
         player.setFallDistance(0);
@@ -555,7 +563,7 @@ public final class VertigoGame {
         } else {
             playSoundForAllPlayers(Sound.ENTITY_PLAYER_SPLASH_HIGH_SPEED);
         }
-        player.sendTitle("", "§9Splash! §6+ " + score + " point" + (score > 1 ? "s" : ""), -1, -1, -1);
+        player.showTitle(title(empty(), textOfChildren(text("Splash! ", BLUE), text(score + " point" + (score > 1 ? "s" : ""), GOLD))));
         vp.score += score;
         if (plugin.state.event) {
             plugin.state.addScore(vp.uuid, score);
@@ -604,7 +612,7 @@ public final class VertigoGame {
 
     private void playerTimedOut(VertigoPlayer vp) {
         Player player = vp.getPlayer();
-        if (player != null) player.sendActionBar("");
+        if (player != null) player.sendActionBar(empty());
         Random r = new Random(System.currentTimeMillis());
         String[] strings = {
             "was too afraid to jump.",
@@ -613,14 +621,14 @@ public final class VertigoGame {
             "had a bad case of vertigo."
         };
         String string = strings[r.nextInt(strings.length)];
-        sendMsgToAllPlayers(chatPrefix + "§3" + vp.name + " §c" + string);
+        sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(vp.name + " ", DARK_AQUA), text(string, RED)));
         // This might be fired after the player has disconnected.
         vp.setSpectator();
         vp.timeouts++;
         // Player has most likely gone afk.
         if (vp.timeouts >= 3) {
             vp.isPlaying = false;
-            sendMsgToAllPlayers(chatPrefix + "§3" + vp.name + " §7was disqualified for failing to make 3 jumps in time.");
+            sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(vp.name + " ", RED), text("was disqualified for failing to make 3 jumps in time.", GRAY)));
         }
         if (player != null) {
             player.teleport(vp.getSpawnLocation());
@@ -653,7 +661,7 @@ public final class VertigoGame {
         }
     }
 
-    private void updateGamebar(double progress) {
+    private void updateBossBar(double progress) {
         if (state == GameState.READY) {
             int count = 0;
             for (VertigoPlayer vp : players) {
@@ -661,57 +669,41 @@ public final class VertigoGame {
                     count++;
                 }
             }
-            plugin.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " waiting for players. "
-                                    + ChatColor.GOLD + count + ChatColor.WHITE + " joined so far.");
+            plugin.bossBar.name(textOfChildren(plugin.TITLE,
+                                               text(" waiting for players. ", WHITE),
+                                               text(count, GOLD),
+                                               text(" joined so far.", WHITE)));
         } else if (state == GameState.COUNTDOWN_TO_START) {
-            plugin.gamebar.setTitle(ChatColor.BOLD + "Vertigo" + ChatColor.WHITE + " starting...");
+            plugin.bossBar.name(textOfChildren(plugin.TITLE, text(" starting...", WHITE)));
         } else if (state == GameState.RUNNING) {
-            String t = "";
+            List<Component> t = new ArrayList<>();
             if (map.currentRingCenter != null) {
-                t += ChatColor.GOLD + "" + ChatColor.BOLD + "◯" + ChatColor.GOLD + "Golden ring ";
+                t.add(textOfChildren(Mytems.GOLDEN_HOOP, text(" Golden ring", GOLD)));
             }
             if (currentJumper != null) {
-                t += "" + ChatColor.WHITE + "Jumping: " + ChatColor.AQUA + currentJumper.name + ChatColor.GRAY
-                    + " [" + superscript(currentJumperIndex + 1)
-                    + "/" + subscript(jumpers.size()) + "] ";
+                t.add(textOfChildren(text(" Jumping: ", WHITE),
+                                     text(currentJumper.name, AQUA),
+                                     text(" [" + superscript(currentJumperIndex + 1) + "/" + subscript(jumpers.size()) + "] ", GRAY)));
             }
-            plugin.gamebar.setTitle(t);
+            plugin.bossBar.name(join(noSeparators(), t));
         } else if (state == GameState.ENDED) {
-            String t = "";
+            List<Component> t = new ArrayList<>();
             if (!winnerName.equals("")) {
-                t += "Winner: " + ChatColor.AQUA + winnerName;
+                t.add(textOfChildren(text("Winner: ", WHITE), text(winnerName, AQUA)));
             } else {
-                t += "It's a draw!";
+                t.add(text("It's a draw!", GRAY));
             }
-            plugin.gamebar.setTitle(t);
+            plugin.bossBar.name(join(noSeparators(), t));
         }
         if (Double.isNaN(progress)) {
             progress = 0;
         }
-        plugin.gamebar.setProgress(progress);
-    }
-
-    private void sendMsgToAllPlayers(String msg) {
-        for (VertigoPlayer vp : players) {
-            Player player = vp.getPlayer();
-            if (player != null) {
-                Msg.send(player, msg);
-            }
-        }
+        plugin.bossBar.progress((float) progress);
     }
 
     private void sendMsgToAllPlayers(Component msg) {
         for (Player player : world.getPlayers()) {
             player.sendMessage(msg);
-        }
-    }
-
-    private void sendTitleToAllPlayers(String title, String subtitle) {
-        for (VertigoPlayer vp : players) {
-            Player player = vp.getPlayer();
-            if (player != null) {
-                player.sendTitle(title, subtitle, -1, -1, -1);
-            }
         }
     }
 

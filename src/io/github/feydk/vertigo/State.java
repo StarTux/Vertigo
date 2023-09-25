@@ -1,14 +1,12 @@
 package io.github.feydk.vertigo;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public final class State {
-    protected List<String> worlds = new ArrayList<>();
     protected boolean event;
+    protected boolean pause;
     protected Map<UUID, Integer> scores = new HashMap<>();
 
     public void addScore(UUID uuid, int value) {

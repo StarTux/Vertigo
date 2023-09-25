@@ -5,18 +5,11 @@ import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandNode;
 import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.playercache.PlayerCache;
-import java.io.File;
+import com.winthier.creative.BuildWorld;
 import java.util.ArrayList;
 import java.util.List;
-import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.YamlConfiguration;
-import static net.kyori.adventure.text.Component.join;
-import static net.kyori.adventure.text.Component.newline;
 import static net.kyori.adventure.text.Component.text;
-import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
-import static net.kyori.adventure.text.event.ClickEvent.runCommand;
-import static net.kyori.adventure.text.event.HoverEvent.showText;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 
 public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
@@ -26,16 +19,13 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
 
     @Override
     protected void onEnable() {
-        rootNode.addChild("list").denyTabCompletion()
-            .description("List maps")
-            .senderCaller(this::list);
         rootNode.addChild("start").arguments("<map>")
             .description("Start a game")
-            .completers(CommandArgCompleter.supplyList(() -> plugin.getConfig().getStringList("maps")))
+            .completers(CommandArgCompleter.supplyList(() -> listMapPaths(true)))
             .senderCaller(this::start);
         rootNode.addChild("test").arguments("<world>")
             .description("Test a world")
-            .completers(CommandArgCompleter.supplyList(() -> List.of(plugin.mapFolder.list())))
+            .completers(CommandArgCompleter.supplyList(() -> listMapPaths(false)))
             .senderCaller(this::test);
         rootNode.addChild("stop").denyTabCompletion()
             .description("Stop the game")
@@ -45,8 +35,12 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
             .senderCaller(this::forcewin);
         rootNode.addChild("event").arguments("true|false")
             .description("Set event mode")
-            .completers(CommandArgCompleter.list("true", "false"))
+            .completers(CommandArgCompleter.BOOLEAN)
             .senderCaller(this::event);
+        rootNode.addChild("pause").arguments("true|false")
+            .description("Set pause mode")
+            .completers(CommandArgCompleter.BOOLEAN)
+            .senderCaller(this::pause);
         CommandNode scoreNode = rootNode.addChild("score")
             .description("Score subcommands");
         scoreNode.addChild("get").arguments("<player>")
@@ -66,55 +60,36 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
             .senderCaller(this::scoreReward);
     }
 
-    private void list(CommandSender sender) {
-        List<Component> list = new ArrayList<>();
-        int c = 0;
-        int perLine = 4;
-        for (String mapWorldName : plugin.getConfig().getStringList("maps")) {
-            File file = new File(plugin.mapFolder, mapWorldName + "/config.yml");
-            YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-            String niceName = config.getString("map.name");
-            if (niceName == null) {
-                niceName = mapWorldName;
-            }
-            String cmd = "/vertigoadmin load " + mapWorldName;
-            list.add(text("[" + niceName + "] ", AQUA)
-                     .hoverEvent(showText(text(cmd, GRAY)))
-                     .clickEvent(runCommand(cmd)));
-            c += 1;
-            if (c == perLine) {
-                list.add(newline());
-                c = 0;
-            }
+    private List<String> listMapPaths(boolean requireConfirmation) {
+        List<String> result = new ArrayList<>();
+        for (BuildWorld it : BuildWorld.findMinigameWorlds(plugin.MINIGAME_TYPE, requireConfirmation)) {
+            result.add(it.getPath());
         }
-        sender.sendMessage(join(noSeparators(), list));
+        return result;
     }
+
     private boolean start(CommandSender sender, String[] args) {
         if (args.length != 1) return false;
-        String arg = args[0];
-        if (!plugin.getConfig().getStringList("maps").contains(arg)) {
-            throw new CommandWarn("Map not found: " + arg);
+        BuildWorld buildWorld = BuildWorld.findWithPath(args[0]);
+        if (buildWorld == null || buildWorld.getRow().parseMinigame() != plugin.MINIGAME_TYPE) {
+            throw new CommandWarn("Vertigo world not found: " + args[0]);
         }
-        sender.sendMessage("Starting map: " + arg);
-        plugin.loadAndPlayWorld(arg);
+        plugin.loadAndPlayWorld(buildWorld, false);
         return true;
     }
 
     private boolean test(CommandSender sender, String[] args) {
         if (args.length != 1) return false;
-        String arg = args[0];
-        File file = new File(plugin.mapFolder, arg);
-        if (!file.isDirectory()) {
-            throw new CommandWarn("World not found: " + arg);
+        BuildWorld buildWorld = BuildWorld.findWithPath(args[0]);
+        if (buildWorld == null || buildWorld.getRow().parseMinigame() != plugin.MINIGAME_TYPE) {
+            throw new CommandWarn("Vertigo world not found: " + args[0]);
         }
-        sender.sendMessage("Testing world: " + arg);
-        plugin.loadAndPlayWorld(arg);
-        plugin.game.setTesting(true);
+        plugin.loadAndPlayWorld(buildWorld, true);
         return true;
     }
 
     private void forcewin(CommandSender sender) {
-        if (plugin.game == null || !plugin.map_loaded) {
+        if (plugin.game == null || !plugin.mapLoaded) {
             throw new CommandWarn("There is no map loaded!");
         }
         plugin.game.end();
@@ -122,10 +97,10 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
     }
 
     private void stop(CommandSender sender) {
-        if (plugin.game == null || !plugin.map_loaded) {
+        if (plugin.game == null || !plugin.mapLoaded) {
             throw new CommandWarn("There is no map loaded!");
         }
-        if (!plugin.discardWorld(plugin.game)) {
+        if (!plugin.discardGame()) {
             throw new CommandWarn("The game world could not be unloaded");
         }
         sender.sendMessage(text("The game has been discarded", AQUA));
@@ -137,15 +112,23 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
             sender.sendMessage(text("Event mode: " + plugin.state.event, plugin.state.event ? AQUA : RED));
             return true;
         }
-        boolean value;
-        try {
-            value = Boolean.parseBoolean(args[0]);
-        } catch (IllegalStateException iae) {
-            throw new CommandWarn("Invalid event mode: " + args[0]);
-        }
+        final boolean value = CommandArgCompleter.requireBoolean(args[0]);
         plugin.state.event = value;
         plugin.saveState();
         sender.sendMessage(text("Event mode: " + plugin.state.event, plugin.state.event ? AQUA : RED));
+        return true;
+    }
+
+    private boolean pause(CommandSender sender, String[] args) {
+        if (args.length > 1) return false;
+        if (args.length == 0) {
+            sender.sendMessage(text("Pause mode: " + plugin.state.pause, plugin.state.pause ? AQUA : RED));
+            return true;
+        }
+        final boolean value = CommandArgCompleter.requireBoolean(args[0]);
+        plugin.state.pause = value;
+        plugin.saveState();
+        sender.sendMessage(text("Pause mode: " + plugin.state.pause, plugin.state.pause ? AQUA : RED));
         return true;
     }
 
