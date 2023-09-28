@@ -82,6 +82,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
         saveState();
         discardGame();
         serverSidebar(null);
+        MapVote.stop(MINIGAME_TYPE);
     }
 
     protected void loadState() {
@@ -241,6 +242,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
     private void tick() {
         List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
         if ((!mapLoaded || !game.isTesting()) && online.size() < 2) {
+            MapVote.stop(MINIGAME_TYPE);
             if (mapLoaded) {
                 getLogger().info("Discarding world because of online players");
                 discardGame();
@@ -267,19 +269,13 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
                 }
             }
         } else {
-            if (MapVote.isActive(MINIGAME_TYPE)) {
-                if (state.pause) {
-                    serverSidebar(null);
-                    MapVote.stop(MINIGAME_TYPE);
-                    return;
-                }
+            if (state.pause) {
+                serverSidebar(null);
+                MapVote.stop(MINIGAME_TYPE);
+            } else if (MapVote.isActive(MINIGAME_TYPE)) {
                 serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo", YELLOW)),
                                       textOfChildren(WATER_BUCKET, text(online.size() + " waiting", GRAY))));
             } else {
-                if (state.pause) {
-                    serverSidebar(null);
-                    return;
-                }
                 MapVote.start(MINIGAME_TYPE, vote -> {
                         vote.setTitle(TITLE);
                         vote.setCallback(this::onMapLoaded);
@@ -290,6 +286,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
     }
 
     protected void loadAndPlayWorld(BuildWorld buildWorld, boolean testing) {
+        MapVote.stop(MINIGAME_TYPE);
         if (buildWorld.getRow().parseMinigame() != MINIGAME_TYPE) {
             throw new IllegalStateException("Not a Vertigo world: " + buildWorld.getName());
         }
@@ -306,7 +303,7 @@ public final class VertigoLoader extends JavaPlugin implements Listener {
     private VertigoGame onWorldLoaded(World world, BuildWorld buildWorld) {
         discardGame();
         game = new VertigoGame(this);
-        game.setWorld(world, buildWorld.getPath());
+        game.setWorld(world, buildWorld);
         if (game.setup(Bukkit.getConsoleSender())) {
             game.ready(Bukkit.getConsoleSender());
             for (Player player : Bukkit.getOnlinePlayers()) {

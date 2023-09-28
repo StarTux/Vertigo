@@ -4,6 +4,8 @@ import com.cavetale.core.event.minigame.MinigameFlag;
 import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
 import com.cavetale.core.event.minigame.MinigameMatchType;
 import com.cavetale.mytems.Mytems;
+import com.winthier.creative.BuildWorld;
+import com.winthier.creative.review.MapReview;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +58,7 @@ import static net.kyori.adventure.title.Title.title;
 public final class VertigoGame {
     protected VertigoLoader plugin;
     protected World world;
+    protected BuildWorld buildWorld;
     protected GameMap map;
     protected String mapName;
     protected GameState state = GameState.NONE;
@@ -107,9 +110,10 @@ public final class VertigoGame {
         endDuration = plugin.getConfig().getInt("general.endDuration");
     }
 
-    protected void setWorld(World theWorld, String theMapName) {
+    protected void setWorld(World theWorld, BuildWorld theBuildWorld) {
         this.world = theWorld;
-        this.mapName = theMapName;
+        this.buildWorld = theBuildWorld;
+        this.mapName = theBuildWorld.getPath();
         log("Did set world");
     }
 
@@ -161,7 +165,8 @@ public final class VertigoGame {
     }
 
     protected void discard() {
-        setWorld(null, "");
+        world = null;
+        buildWorld = null;
         state = GameState.NONE;
         for (VertigoPlayer vp : players) {
             leave(vp.getPlayer());
@@ -370,6 +375,10 @@ public final class VertigoGame {
                 sendTitleToAllPlayers(text("Draw!", AQUA), text("Nobody wins", WHITE));
             }
         }
+        if (!MapReview.isActive(world)) {
+            MapReview.start(world, buildWorld);
+        }
+        MapReview.in(world).remindAllOnce();
         return null;
     }
 
