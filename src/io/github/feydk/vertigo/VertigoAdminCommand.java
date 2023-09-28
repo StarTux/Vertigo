@@ -12,8 +12,8 @@ import org.bukkit.command.CommandSender;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 
-public final class VertigoAdminCommand extends AbstractCommand<VertigoLoader> {
-    protected VertigoAdminCommand(final VertigoLoader plugin) {
+public final class VertigoAdminCommand extends AbstractCommand<VertigoPlugin> {
+    protected VertigoAdminCommand(final VertigoPlugin plugin) {
         super(plugin, "vertigoadmin");
     }
 

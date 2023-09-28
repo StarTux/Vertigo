@@ -49,7 +49,7 @@ import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
 
-public final class VertigoLoader extends JavaPlugin implements Listener {
+public final class VertigoPlugin extends JavaPlugin implements Listener {
     protected boolean debug;
     protected VertigoGame game;
     protected boolean mapLoaded;

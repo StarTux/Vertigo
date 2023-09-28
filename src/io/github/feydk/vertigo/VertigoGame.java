@@ -56,7 +56,7 @@ import static net.kyori.adventure.title.Title.title;
 
 @Getter
 public final class VertigoGame {
-    protected VertigoLoader plugin;
+    protected VertigoPlugin plugin;
     protected World world;
     protected BuildWorld buildWorld;
     protected GameMap map;
@@ -104,7 +104,7 @@ public final class VertigoGame {
         plugin.getLogger().warning("[" + mapName + "] " + msg);
     }
 
-    public VertigoGame(final VertigoLoader plugin) {
+    public VertigoGame(final VertigoPlugin plugin) {
         this.plugin = plugin;
         countdownToStartDuration = plugin.getConfig().getInt("general.countdownToStartDuration");
         endDuration = plugin.getConfig().getInt("general.endDuration");
