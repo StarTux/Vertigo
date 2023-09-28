@@ -4,6 +4,7 @@ import com.cavetale.core.event.minigame.MinigameFlag;
 import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
 import com.cavetale.core.event.minigame.MinigameMatchType;
 import com.cavetale.mytems.Mytems;
+import com.cavetale.mytems.item.font.Glyph;
 import com.winthier.creative.BuildWorld;
 import com.winthier.creative.review.MapReview;
 import java.time.Duration;
@@ -43,12 +44,15 @@ import org.bukkit.util.Vector;
 import static com.cavetale.core.font.Unicode.subscript;
 import static com.cavetale.core.font.Unicode.superscript;
 import static com.cavetale.core.font.Unicode.tiny;
-import static java.util.Comparator.comparing;
+import static com.cavetale.core.font.VanillaItems.WATER_BUCKET;
+import static java.util.Comparator.comparingInt;
 import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
+import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
+import static net.kyori.adventure.text.JoinConfiguration.separator;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
 import static net.kyori.adventure.title.Title.Times.times;
@@ -70,6 +74,8 @@ public final class VertigoGame {
     protected long stateTicks;
     private int countdownToStartDuration;
     private int endDuration;
+    private int currentRound;
+    private int maxRounds = 99;
 
     // Stuff for keeping track of jumpers.
     List<VertigoPlayer> jumpers = new ArrayList<>();
@@ -216,6 +222,12 @@ public final class VertigoGame {
     protected void start() {
         stateChange(state, GameState.COUNTDOWN_TO_START);
         state = GameState.COUNTDOWN_TO_START;
+        int max = 0;
+        for (VertigoPlayer it : players) {
+            // Max 10 jumps per player
+            if (it.isPlaying) max += 10;
+        }
+        maxRounds = max;
     }
 
     protected void end() {
@@ -256,15 +268,15 @@ public final class VertigoGame {
                     aliveCount++;
                 }
             }
-            if (aliveCount == 0 || (aliveCount == 1 && moreThanOnePlayed && !testing) || map.getWaterLeft() <= 0) {
+            if (aliveCount == 0 || (aliveCount == 1 && moreThanOnePlayed && !testing)) {
                 log("Stopping game because of alive count");
                 newState = GameState.ENDED;
-            } else {
-                // At the start of each "round", check if someone is 10 points ahead. If yes, end the game.
-                if (currentJumperIndex == 0 && isSomeoneLeadingBy(10)) {
-                    log("Stopping game because someone is leading by 10");
-                    newState = GameState.ENDED;
-                }
+            } else if (map.getWaterLeft() <= 0) {
+                log("Stopping game because there is no water left");
+                newState = GameState.ENDED;
+            } else if (currentJumperIndex == 0 && isSomeoneLeadingBy(10)) {
+                log("Stopping game because someone is leading by 10");
+                newState = GameState.ENDED;
             }
             if (newState == GameState.ENDED) {
                 findWinner();
@@ -281,12 +293,12 @@ public final class VertigoGame {
     }
 
     private boolean isSomeoneLeadingBy(int amount) {
-        if (players.size() < 2) return false;
         List<Integer> list = new ArrayList<>(players.size());
         for (VertigoPlayer vp : players) {
             if (!vp.isPlaying) continue;
             list.add(vp.score);
         }
+        if (list.size() < 2) return false;
         Collections.sort(list);
         return list.get(list.size() - 1) - list.get(list.size() - 2) >= amount;
     }
@@ -421,9 +433,10 @@ public final class VertigoGame {
     }
 
     private void startRound() {
+        currentRound += 1;
         int order = 1;
         Collections.shuffle(jumpers);
-        Collections.sort(jumpers, comparing(VertigoPlayer::getScore));
+        Collections.sort(jumpers, comparingInt(VertigoPlayer::getScore));
         for (VertigoPlayer vp : jumpers) {
             vp.order = order++;
         }
@@ -666,7 +679,12 @@ public final class VertigoGame {
         }
         if (advance) {
             //startRoundCountdown();
-            startRound();
+            if (currentRound >= maxRounds) {
+                log("Stopping game because max rounds exceeded");
+                end();
+            } else {
+                startRound();
+            }
         }
     }
 
@@ -687,22 +705,23 @@ public final class VertigoGame {
         } else if (state == GameState.RUNNING) {
             List<Component> t = new ArrayList<>();
             if (map.currentRingCenter != null) {
-                t.add(textOfChildren(Mytems.GOLDEN_HOOP, text(" Golden ring", GOLD)));
+                t.add(textOfChildren(Mytems.GOLDEN_HOOP, text("Golden ring", GOLD)));
             }
+            t.add(textOfChildren(text(tiny("round"), GRAY),
+                                 text(superscript(currentRound), WHITE),
+                                 text("/", GRAY), text(subscript(maxRounds), WHITE)));
             if (currentJumper != null) {
-                t.add(textOfChildren(text(" Jumping: ", WHITE),
+                t.add(textOfChildren(text(tiny("jumper"), GRAY),
                                      text(currentJumper.name, AQUA),
-                                     text(" [" + superscript(currentJumperIndex + 1) + "/" + subscript(jumpers.size()) + "] ", GRAY)));
+                                     text(superscript(currentJumperIndex + 1), WHITE),
+                                     text("/", GRAY),
+                                     text(subscript(jumpers.size()), WHITE)));
             }
-            plugin.bossBar.name(join(noSeparators(), t));
+            plugin.bossBar.name(join(separator(space()), t));
         } else if (state == GameState.ENDED) {
-            List<Component> t = new ArrayList<>();
-            if (!winnerName.equals("")) {
-                t.add(textOfChildren(text("Winner: ", WHITE), text(winnerName, AQUA)));
-            } else {
-                t.add(text("It's a draw!", GRAY));
-            }
-            plugin.bossBar.name(join(noSeparators(), t));
+            plugin.bossBar.name(!winnerName.equals("")
+                                ? textOfChildren(text("Winner: ", WHITE), text(winnerName, AQUA))
+                                : text("It's a draw!", GRAY));
         }
         if (Double.isNaN(progress)) {
             progress = 0;
@@ -832,5 +851,48 @@ public final class VertigoGame {
             if (it.isPlaying) result += 1;
         }
         return result;
+    }
+
+    protected void makeSidebar(Player player, List<Component> lines) {
+        lines.add(textOfChildren(text(tiny("round "), GRAY),
+                                 text(superscript(currentRound), WHITE),
+                                 text("/", GRAY), text(subscript(maxRounds), WHITE)));
+        List<VertigoPlayer> activePlayers = new ArrayList<>();
+        for (VertigoPlayer vp : players) {
+            if (!vp.isPlaying) continue;
+            activePlayers.add(vp);
+        }
+        Collections.sort(activePlayers, comparingInt(VertigoPlayer::getScore).reversed());
+        // Notify spectators very clearly at all times.
+        VertigoPlayer vertigoPlayer = findPlayer(player);
+        if (vertigoPlayer != null) {
+            if (!vertigoPlayer.isPlaying && !vertigoPlayer.wasPlaying) {
+                lines.add(text("You're spectating!", YELLOW));
+            }
+            if (vertigoPlayer.isPlaying && vertigoPlayer.order > 0) {
+                lines.add(textOfChildren(text(tiny("your jump "), GRAY),
+                                         text(superscript(vertigoPlayer.order), WHITE),
+                                         text("/", GRAY),
+                                         text(subscript(jumpers.size()), WHITE)));
+                lines.add(textOfChildren(text(tiny("score "), GRAY),
+                                         text(vertigoPlayer.score, WHITE)));
+            }
+        }
+        int placement = 0;
+        int lastScore = -1;
+        for (VertigoPlayer vp : activePlayers) {
+            if (lastScore != vp.score) {
+                lastScore = vp.score;
+                placement += 1;
+            }
+            boolean jumping = currentJumper == vp;
+            lines.add(join(noSeparators(),
+                           (jumping ? WATER_BUCKET.component : empty()),
+                           Glyph.toComponent("" + placement),
+                           text(subscript(vp.score), AQUA),
+                           space(),
+                           text(vp.name),
+                           text(superscript(vp.order), DARK_GRAY)));
+        }
     }
 }

@@ -3,10 +3,8 @@ package io.github.feydk.vertigo;
 import com.cavetale.core.event.hud.PlayerHudEvent;
 import com.cavetale.core.event.hud.PlayerHudPriority;
 import com.cavetale.core.event.minigame.MinigameMatchType;
-import com.cavetale.core.font.Unicode;
 import com.cavetale.core.font.VanillaItems;
 import com.cavetale.fam.trophy.Highscore;
-import com.cavetale.mytems.item.font.Glyph;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
 import com.winthier.creative.BuildWorld;
 import com.winthier.creative.file.Files;
@@ -14,11 +12,9 @@ import com.winthier.creative.vote.MapVote;
 import com.winthier.creative.vote.MapVoteResult;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.World;
@@ -40,9 +36,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 import static com.cavetale.core.font.VanillaItems.WATER_BUCKET;
 import static com.cavetale.server.ServerPlugin.serverSidebar;
-import static net.kyori.adventure.text.Component.empty;
 import static net.kyori.adventure.text.Component.join;
-import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
@@ -141,13 +135,11 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
         if (game == null || game.world == null || game.state != VertigoGame.GameState.RUNNING) {
             return;
         }
-        if (!(event.getEntity() instanceof Player)) {
+        if (!(event.getEntity() instanceof Player player)) {
             return;
         }
-        Player player = (Player) event.getEntity();
         if (player.getWorld().getName().equals(game.world.getName())) {
             event.setCancelled(true);
-
             // Pass it on to game.
             game.playerDamage(player, event);
         }
@@ -254,6 +246,7 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
             return;
         }
         if (mapLoaded) {
+            MapVote.stop(MINIGAME_TYPE);
             if (game.state == VertigoGame.GameState.ENDED && game.stateTicks > 20L * 30L) {
                 discardGame();
             } else {
@@ -354,40 +347,7 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
         List<Component> lines = new ArrayList<>();
         if (mapLoaded && game != null && !game.shutdown) {
             lines.add(state.event ? TOURNAMENT_TITLE : TITLE);
-            List<VertigoPlayer> players = new ArrayList<>();
-            for (VertigoPlayer vp : game.players) {
-                if (!vp.isPlaying) continue;
-                players.add(vp);
-            }
-            Collections.sort(players, (a, b) -> Integer.compare(b.score, a.score));
-            // Notify spectators very clearly at all times.
-            VertigoPlayer vertigoPlayer = game.findPlayer(event.getPlayer());
-            if (vertigoPlayer != null) {
-                if (!vertigoPlayer.isPlaying && !vertigoPlayer.wasPlaying) {
-                    lines.add(Component.text("You're spectating!", NamedTextColor.YELLOW));
-                }
-                if (vertigoPlayer.isPlaying && vertigoPlayer.order > 0) {
-                    lines.add(Component.text("You jump as #" + vertigoPlayer.order, NamedTextColor.GRAY));
-                }
-            }
-            int placement = 0;
-            int lastScore = -1;
-            for (VertigoPlayer vp : players) {
-                if (lastScore != vp.score) {
-                    lastScore = vp.score;
-                    placement += 1;
-                }
-                Player player = vp.getPlayer();
-                Component name = player != null ? player.displayName() : Component.text(vp.name);
-                boolean jumping = game.currentJumper == vp;
-                lines.add(join(noSeparators(),
-                               (jumping ? WATER_BUCKET.component : empty()),
-                               Glyph.toComponent("" + placement),
-                               Component.text(Unicode.subscript(vp.score), NamedTextColor.AQUA),
-                               space(),
-                               name,
-                               Component.text(Unicode.superscript(vp.order), NamedTextColor.DARK_GRAY)));
-            }
+            game.makeSidebar(event.getPlayer(), lines);
         } else if (state.event) {
             lines.add(TOURNAMENT_TITLE);
             lines.addAll(highscoreLines);
