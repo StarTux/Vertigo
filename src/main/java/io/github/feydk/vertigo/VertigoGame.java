@@ -73,9 +73,9 @@ public final class VertigoGame {
     private long ticks;
     protected long stateTicks;
     private int countdownToStartDuration;
-    private int endDuration;
+    private int endDuration = 20 * 60;
     private int currentRound;
-    private int maxRounds = 99;
+    private int maxRounds = 10;
 
     // Stuff for keeping track of jumpers.
     List<VertigoPlayer> jumpers = new ArrayList<>();
@@ -113,7 +113,6 @@ public final class VertigoGame {
     public VertigoGame(final VertigoPlugin plugin) {
         this.plugin = plugin;
         countdownToStartDuration = plugin.getConfig().getInt("general.countdownToStartDuration");
-        endDuration = plugin.getConfig().getInt("general.endDuration");
     }
 
     protected void setWorld(World theWorld, BuildWorld theBuildWorld) {
@@ -222,12 +221,6 @@ public final class VertigoGame {
     protected void start() {
         stateChange(state, GameState.COUNTDOWN_TO_START);
         state = GameState.COUNTDOWN_TO_START;
-        int max = 0;
-        for (VertigoPlayer it : players) {
-            // Max 10 jumps per player
-            if (it.isPlaying) max += 10;
-        }
-        maxRounds = max;
     }
 
     protected void end() {
