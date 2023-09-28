@@ -18,6 +18,8 @@ import org.bukkit.block.data.Directional;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
+import static net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText;
+import static org.bukkit.block.sign.Side.FRONT;
 
 public final class GameMap {
     private List<Location> spawnLocations = new ArrayList<>();
@@ -262,7 +264,7 @@ public final class GameMap {
         for (BlockState state : chunk.getTileEntities()) {
             if (state instanceof Chest) {
                 Chest chestBlock = (Chest) state;
-                if (chestBlock.getCustomName() != null && chestBlock.getCustomName().equalsIgnoreCase("[blocks]")) {
+                if (chestBlock.customName() != null && plainText().serialize(chestBlock.customName()).equalsIgnoreCase("[blocks]")) {
                     Inventory inv = chestBlock.getInventory();
                     for (ItemStack item : inv.getContents()) {
                         if (item != null) {
@@ -272,7 +274,7 @@ public final class GameMap {
                     inv.clear();
                     state.getBlock().setType(Material.AIR);
                 }
-            } else if (state instanceof Sign) {
+            } else if (state instanceof Sign sign) {
                 Block signBlock = state.getBlock();
                 BlockData data = signBlock.getBlockData();
                 Block attached = null;
@@ -280,7 +282,7 @@ public final class GameMap {
                     Directional dir = (Directional) data;
                     attached = signBlock.getRelative(dir.getFacing().getOppositeFace());
                 }
-                String firstLine = ((Sign) state).getLine(0).toLowerCase();
+                String firstLine = plainText().serialize(sign.getSide(FRONT).line(0)).toLowerCase();
                 if (firstLine.startsWith("[") && firstLine.endsWith("]")) {
                     if (firstLine.equals("[spawn]")) {
                         Location location = state.getBlock().getLocation().add(.5, .5, .5);
@@ -300,7 +302,7 @@ public final class GameMap {
                         jumpThreshold = state.getBlock().getLocation();
                         state.getBlock().setType(Material.AIR);
                     } else if (firstLine.equals("[water]")) {
-                        String t = ((Sign) state).getLine(1);
+                        String t = plainText().serialize(sign.getSide(FRONT).line(1));
                         if (!t.isEmpty()) {
                             try {
                                 waterCount = Integer.parseInt(t);
@@ -315,7 +317,7 @@ public final class GameMap {
                         //attachedBlock.setType(Material.AIR);
                     } else if (firstLine.equals("[credits]")) {
                         for (int i = 1; i < 4; ++i) {
-                            String credit = ((Sign) state).getLine(i);
+                            String credit = plainText().serialize(sign.getSide(FRONT).line(i));
                             if (!credit.isEmpty()) {
                                 credits.add(credit);
                             }
@@ -324,14 +326,14 @@ public final class GameMap {
                         //if (attached != null)
                         //    attached.setType(Material.AIR);
                     } else if (firstLine.equals("[time]")) {
-                        String t = ((Sign) state).getLine(1);
+                        String t = plainText().serialize(sign.getSide(FRONT).line(1));
                         if (!t.isEmpty()) {
                             try {
                                 time = Integer.parseInt(t);
                             } catch (NumberFormatException ignored) { }
                         }
                         if (time > -1) {
-                            String l = ((Sign) state).getLine(2);
+                            String l = plainText().serialize(sign.getSide(FRONT).line(2));
                             if (!l.isEmpty()) {
                                 if (l.toLowerCase().equals("lock")) {
                                     lockTime = true;
