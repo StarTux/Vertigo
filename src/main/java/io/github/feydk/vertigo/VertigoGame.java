@@ -444,7 +444,7 @@ public final class VertigoGame {
         if (map.spawnRing()) {
             playSoundForAllPlayers(Sound.BLOCK_BEACON_ACTIVATE);
             sendMsgToAllPlayers(textOfChildren(plugin.TITLE,
-                                               text("A ", WHITE),
+                                               text(" A ", WHITE),
                                                text("golden ring ", GOLD),
                                                text("has appeared. Jump through it to earn bonus points!", WHITE)));
         }
