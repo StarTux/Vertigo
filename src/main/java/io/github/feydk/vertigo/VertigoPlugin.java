@@ -7,12 +7,11 @@ import com.cavetale.core.font.VanillaItems;
 import com.cavetale.fam.trophy.Highscore;
 import com.cavetale.mytems.item.trophy.TrophyCategory;
 import com.winthier.creative.BuildWorld;
-import com.winthier.creative.file.Files;
 import com.winthier.creative.vote.MapVote;
-import com.winthier.creative.vote.MapVoteResult;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -44,11 +43,11 @@ import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
 
 public final class VertigoPlugin extends JavaPlugin implements Listener {
-    protected boolean debug;
-    protected VertigoGame game;
-    protected boolean mapLoaded;
+    private static VertigoPlugin instance;
+    protected boolean debug = true;
+    protected final Games games = new Games();
     protected State state;
-    protected BossBar bossBar;
+    protected BossBar lobbyBossBar;
     protected List<Highscore> highscore = new ArrayList<>();
     protected List<Component> highscoreLines = new ArrayList<>();
     protected static final Component TITLE = join(noSeparators(),
@@ -60,21 +59,25 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
                                                              text("Tournament", AQUA));
     protected static final MinigameMatchType MINIGAME_TYPE = MinigameMatchType.VERTIGO;
 
+    public VertigoPlugin() {
+        instance = this;
+    }
+
     public void onEnable() {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
-        bossBar = BossBar.bossBar(TITLE, 0f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
-        this.debug = true;
-        this.game = new VertigoGame(this);
+        lobbyBossBar = BossBar.bossBar(TITLE, 0f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
         new VertigoAdminCommand(this).enable();
         Bukkit.getScheduler().runTaskTimer(this, this::tick, 1L, 1L);
         loadState();
         computeHighscore();
+        games.enable();
     }
 
     public void onDisable() {
+        games.disable();
         saveState();
-        discardGame();
+        games.disable();
         serverSidebar(null);
         MapVote.stop(MINIGAME_TYPE);
     }
@@ -89,176 +92,38 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
         Json.save(file, state);
     }
 
-    @EventHandler
-    public void onPlayerWorldChange(PlayerChangedWorldEvent event) {
-        if (game.world == null) {
-            return;
-        }
-        if (event.getFrom().getName().equals(game.world.getName())) {
-            Player player = event.getPlayer();
-            game.leave(player);
-        }
-    }
-
-    @EventHandler
-    public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
-        if (game != null && game.world != null) {
-            event.setSpawnLocation(game.getSpawnLocation());
-        } else {
-            event.setSpawnLocation(Bukkit.getWorlds().get(0).getSpawnLocation());
-        }
-    }
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        if (game != null && game.world != null) {
-            player.setGameMode(GameMode.SPECTATOR);
-        } else {
-            player.setGameMode(GameMode.ADVENTURE);
-        }
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        if (game == null || game.world == null) {
-            return;
-        }
-        Player player = event.getPlayer();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            game.leave(player);
-        }
-    }
-
-    @EventHandler
-    public void onEntityDamage(EntityDamageEvent event) {
-        if (game == null || game.world == null || game.state != VertigoGame.GameState.RUNNING) {
-            return;
-        }
-        if (!(event.getEntity() instanceof Player player)) {
-            return;
-        }
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            event.setCancelled(true);
-            // Pass it on to game.
-            game.playerDamage(player, event);
-        }
-    }
-
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        if (game == null || game.world == null || game.state != VertigoGame.GameState.RUNNING) {
-            return;
-        }
-        Player player = event.getPlayer();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            game.playerMove(player, event);
-        }
-    }
-
-    @EventHandler
-    public void onFoodLevelChange(FoodLevelChangeEvent event) {
-        if (game == null || game.world == null) {
-            return;
-        }
-        if (!(event.getEntity() instanceof Player)) {
-            return;
-        }
-        Player player = (Player) event.getEntity();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onDropItem(PlayerDropItemEvent event) {
-        if (game == null || game.world == null) {
-            return;
-        }
-        Player player = event.getPlayer();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onPickupItem(EntityPickupItemEvent event) {
-        if (game == null || game.world == null) {
-            return;
-        }
-        if (!(event.getEntity() instanceof Player)) {
-            return;
-        }
-        Player player = (Player) event.getEntity();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onPlayerConsume(PlayerItemConsumeEvent event) {
-        if (game == null || game.world == null) {
-            return;
-        }
-        Player player = event.getPlayer();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        if (game == null || game.world == null) {
-            return;
-        }
-        Player player = event.getPlayer();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onElytra(EntityToggleGlideEvent event) {
-        if (game == null || game.world == null) {
-            return;
-        }
-        if (!(event.getEntity() instanceof Player)) {
-            return;
-        }
-        Player player = (Player) event.getEntity();
-        if (player.getWorld().getName().equals(game.world.getName())) {
-            event.setCancelled(true);
-        }
+    public World getLobbyWorld() {
+        return Bukkit.getWorlds().get(0);
     }
 
     private void tick() {
-        List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
-        if ((!mapLoaded || !game.isTesting()) && online.size() < 2) {
+        games.tick();
+        final List<Player> online = new ArrayList<>(getLobbyWorld().getPlayers());
+        final VertigoGame publicGame = games.getPublicGame();
+        if (publicGame == null && online.size() < 2) {
+            // Nothing is going on.  Reset everything.
             MapVote.stop(MINIGAME_TYPE);
-            if (mapLoaded) {
-                getLogger().info("Discarding world because of online players");
-                discardGame();
-            }
-            bossBar.name(text("Waiting for players", DARK_RED));
-            bossBar.progress(0f);
-            bossBar.color(BossBar.Color.RED);
+            lobbyBossBar.name(text("Waiting for players", DARK_RED));
+            lobbyBossBar.progress(0f);
+            lobbyBossBar.color(BossBar.Color.RED);
             serverSidebar(null);
             return;
         }
-        if (mapLoaded) {
+        // Update the Server Sidebar and start or stop the minigame
+        // vote.
+        if (publicGame != null) {
             MapVote.stop(MINIGAME_TYPE);
-            if (game.state == VertigoGame.GameState.ENDED && game.stateTicks > 20L * 30L) {
-                discardGame();
+            if (publicGame.state == VertigoGame.GameState.ENDED && publicGame.stateTicks > publicGame.getEndDuration()) {
+                games.discard(publicGame);
             } else {
-                game.onTick();
-                if (game.isTesting()) {
-                    serverSidebar(null);
-                } else if (game.state == VertigoGame.GameState.ENDED) {
+                switch (publicGame.state) {
+                case ENDED:
                     serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo", YELLOW)),
                                           textOfChildren(WATER_BUCKET, text("Game Over", AQUA))));
-                } else {
+                    break;
+                default:
                     serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo", YELLOW)),
-                                          textOfChildren(WATER_BUCKET, text(game.getPlayerCount() + " playing", AQUA))));
+                                          textOfChildren(WATER_BUCKET, text(publicGame.getPlayerCount() + " playing", AQUA))));
                 }
             }
         } else {
@@ -271,89 +136,138 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
             } else {
                 MapVote.start(MINIGAME_TYPE, vote -> {
                         vote.setTitle(TITLE);
-                        vote.setCallback(this::onMapLoaded);
-                        vote.setLobbyWorld(Bukkit.getWorlds().get(0));
+                        vote.setCallback(result -> {
+                                VertigoGame newGame = games.startGame(result.getLocalWorldCopy(), result.getBuildWorldWinner());
+                                newGame.setPublicGame(true);
+                            });
+                        vote.setLobbyWorld(getLobbyWorld());
                     });
             }
         }
     }
 
-    protected void loadAndPlayWorld(BuildWorld buildWorld, boolean testing) {
+    protected void loadAndPlayWorld(BuildWorld buildWorld, Consumer<VertigoGame> callback) {
         MapVote.stop(MINIGAME_TYPE);
         if (buildWorld.getRow().parseMinigame() != MINIGAME_TYPE) {
             throw new IllegalStateException("Not a Vertigo world: " + buildWorld.getName());
         }
         buildWorld.makeLocalCopyAsync(world -> {
-                VertigoGame newGame = onWorldLoaded(world, buildWorld);
-                newGame.setTesting(testing);
+                VertigoGame newGame = games.startGame(world, buildWorld);
+                callback.accept(newGame);
             });
     }
 
-    protected VertigoGame onMapLoaded(MapVoteResult result) {
-        return onWorldLoaded(result.getLocalWorldCopy(), result.getBuildWorldWinner());
+    @EventHandler
+    public void onPlayerWorldChange(PlayerChangedWorldEvent event) {
+        final VertigoGame game = games.in(event.getFrom());
+        if (game != null) {
+            game.leave(event.getPlayer());
+        }
     }
 
-    private VertigoGame onWorldLoaded(World world, BuildWorld buildWorld) {
-        discardGame();
-        game = new VertigoGame(this);
-        game.setWorld(world, buildWorld);
-        if (game.setup(Bukkit.getConsoleSender())) {
-            game.ready(Bukkit.getConsoleSender());
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                game.joinPlayer(player, false); // Player, isSpectator
-            }
-            game.start();
-        } else {
-            game.discard();
+    @EventHandler
+    public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
+        final VertigoGame game = games.at(event.getSpawnLocation());
+        if (game != null && game.world != null) {
+            event.setSpawnLocation(game.getSpawnLocation());
+            return;
         }
-        mapLoaded = true;
-        buildWorld.announceMap(world);
-        return game;
+        final VertigoGame publicGame = games.getPublicGame();
+        if (publicGame != null) {
+            event.setSpawnLocation(publicGame.getSpawnLocation());
+            return;
+        }
+        event.setSpawnLocation(getLobbyWorld().getSpawnLocation());
     }
 
-    protected boolean discardGame() {
-        if (!mapLoaded) return false;
-        if (!discardWorld(game)) return false;
-        mapLoaded = false;
-        game = null;
-        return true;
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        final Player player = event.getPlayer();
+        final VertigoGame game = games.in(player.getWorld());
+        if (game != null) {
+            player.setGameMode(GameMode.SPECTATOR);
+        } else if (player.getWorld().equals(getLobbyWorld())) {
+            player.setGameMode(GameMode.ADVENTURE);
+        }
     }
 
-    protected boolean discardWorld(VertigoGame theGame) {
-        getLogger().info("Discarding world " + theGame.mapName);
-        theGame.shutdown();
-        if (theGame.world == null) return false;
-        for (Player p : theGame.world.getPlayers()) {
-            theGame.leave(p);
-            p.teleport(getServer().getWorlds().get(0).getSpawnLocation());
-            if (p.getGameMode() != GameMode.ADVENTURE) {
-                p.setGameMode(GameMode.ADVENTURE);
-            }
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        final Player player = event.getPlayer();
+        games.applyEntity(player, game -> game.leave(player));
+    }
+
+    @EventHandler
+    public void onEntityDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        games.applyEntity(player, game -> {
+                event.setCancelled(true);
+                if (game.state == VertigoGame.GameState.RUNNING) {
+                    game.playerDamage(player, event);
+                }
+            });
+    }
+
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        final Player player = event.getPlayer();
+        games.applyEntity(player, game -> {
+                if (game.state != VertigoGame.GameState.RUNNING) return;
+                game.playerMove(player, event);
+            });
+    }
+
+    @EventHandler
+    public void onFoodLevelChange(FoodLevelChangeEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
         }
-        Files.deleteWorld(theGame.world);
-        theGame.discard();
-        if (theGame == game) {
-            game = null;
-            mapLoaded = false;
-        }
-        return true;
+        final VertigoGame game = games.in(player.getWorld());
+        if (game != null) event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onDropItem(PlayerDropItemEvent event) {
+        games.applyEntity(event.getPlayer(), game -> event.setCancelled(true));
+    }
+
+    @EventHandler
+    public void onPickupItem(EntityPickupItemEvent event) {
+        games.applyEntity(event.getEntity(), game -> event.setCancelled(true));
+    }
+
+    @EventHandler
+    public void onPlayerConsume(PlayerItemConsumeEvent event) {
+        games.applyEntity(event.getPlayer(), game -> event.setCancelled(true));
+    }
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        games.applyEntity(event.getPlayer(), game -> event.setCancelled(true));
+    }
+
+    @EventHandler
+    public void onElytra(EntityToggleGlideEvent event) {
+        games.applyEntity(event.getEntity(), game -> event.setCancelled(true));
     }
 
     @EventHandler
     protected void onPlayerHud(PlayerHudEvent event) {
-        if (!MapVote.isActive(MINIGAME_TYPE)) {
-            event.bossbar(PlayerHudPriority.HIGH, bossBar);
-        }
-        List<Component> lines = new ArrayList<>();
-        if (mapLoaded && game != null && !game.shutdown) {
+        final Player player = event.getPlayer();
+        final List<Component> lines = new ArrayList<>();
+        VertigoGame game = games.in(player.getWorld());
+        if (game != null && !game.shutdown) {
             lines.add(state.event ? TOURNAMENT_TITLE : TITLE);
             game.makeSidebar(event.getPlayer(), lines);
+            event.bossbar(PlayerHudPriority.HIGH, game.bossBar);
         } else if (state.event) {
             lines.add(TOURNAMENT_TITLE);
             lines.addAll(highscoreLines);
+            event.bossbar(PlayerHudPriority.HIGH, lobbyBossBar);
+        } else if (!MapVote.isActive(MINIGAME_TYPE) || !player.getWorld().equals(getLobbyWorld())) {
+            event.bossbar(PlayerHudPriority.HIGH, lobbyBossBar);
         }
-        if (lines.isEmpty()) return;
-        event.sidebar(PlayerHudPriority.HIGHEST, lines);
+        if (!lines.isEmpty()) event.sidebar(PlayerHudPriority.HIGHEST, lines);
     }
 
     protected void computeHighscore() {
@@ -368,5 +282,9 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
                                 TOURNAMENT_TITLE,
                                 hi -> "You collected " + hi.score + " point" + (hi.score == 1 ? "" : "s")
                                 + " at Vertigo!");
+    }
+
+    public static VertigoPlugin plugin() {
+        return instance;
     }
 }

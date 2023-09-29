@@ -6,6 +6,7 @@ import com.cavetale.core.event.minigame.MinigameMatchType;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.font.Glyph;
 import com.winthier.creative.BuildWorld;
+import com.winthier.creative.file.Files;
 import com.winthier.creative.review.MapReview;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import java.util.Random;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Difficulty;
@@ -60,13 +62,16 @@ import static net.kyori.adventure.title.Title.title;
 
 @Getter
 public final class VertigoGame {
-    protected VertigoPlugin plugin;
-    protected World world;
-    protected BuildWorld buildWorld;
+    protected final VertigoPlugin plugin;
+    protected final World world;
+    protected final String path;
+    protected final BuildWorld buildWorld;
     protected GameMap map;
-    protected String mapName;
+    protected final String mapName;
     protected GameState state = GameState.NONE;
     protected List<VertigoPlayer> players = new ArrayList<>();
+    @Setter protected boolean publicGame = false;
+    @Setter private boolean testing = false;
 
     // Game loop stuff.
     protected boolean shutdown;
@@ -76,6 +81,7 @@ public final class VertigoGame {
     private int endDuration = 20 * 60;
     private int currentRound;
     private int maxRounds = 10;
+    protected BossBar bossBar;
 
     // Stuff for keeping track of jumpers.
     List<VertigoPlayer> jumpers = new ArrayList<>();
@@ -87,7 +93,6 @@ public final class VertigoGame {
     private boolean moreThanOnePlayed;
     private String winnerName;
     private List<UUID> winnerUuids = new ArrayList<>();
-    @Setter private boolean testing = false;
 
     // Stuff for keeping track of rounds.
     //private int roundNumber = 0;
@@ -110,23 +115,17 @@ public final class VertigoGame {
         plugin.getLogger().warning("[" + mapName + "] " + msg);
     }
 
-    public VertigoGame(final VertigoPlugin plugin) {
+    public VertigoGame(final VertigoPlugin plugin, final World theWorld, final BuildWorld theBuildWorld) {
         this.plugin = plugin;
-        countdownToStartDuration = plugin.getConfig().getInt("general.countdownToStartDuration");
-    }
-
-    protected void setWorld(World theWorld, BuildWorld theBuildWorld) {
+        this.path = theWorld.getName();
         this.world = theWorld;
         this.buildWorld = theBuildWorld;
         this.mapName = theBuildWorld.getPath();
-        log("Did set world");
+        this.bossBar = BossBar.bossBar(plugin.TITLE, 0f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
+        countdownToStartDuration = plugin.getConfig().getInt("general.countdownToStartDuration");
     }
 
     protected boolean setup(CommandSender admin) {
-        if (world == null) {
-            admin.sendMessage(text("You must load a world first.", RED));
-            return false;
-        }
         shutdown = false;
         players.clear();
         jumpers.clear();
@@ -141,7 +140,6 @@ public final class VertigoGame {
         world.setGameRule(GameRule.DO_PATROL_SPAWNING, false);
         world.setGameRule(GameRule.DO_TRADER_SPAWNING, false);
         world.setGameRule(GameRule.FIRE_DAMAGE, false);
-        world.setGameRule(GameRule.KEEP_INVENTORY, true);
         world.setGameRule(GameRule.KEEP_INVENTORY, true);
         world.setGameRule(GameRule.FALL_DAMAGE, true);
         world.setWeatherDuration(Integer.MAX_VALUE);
@@ -169,13 +167,21 @@ public final class VertigoGame {
         return ready;
     }
 
+    /**
+     * Clean up the game and its world.  Called by Games, which will
+     * then remove the instance from its cache.
+     */
     protected void discard() {
-        world = null;
-        buildWorld = null;
-        state = GameState.NONE;
-        for (VertigoPlayer vp : players) {
-            leave(vp.getPlayer());
+        log("Discarding world");
+        shutdown();
+        for (Player player : world.getPlayers()) {
+            player.setGameMode(GameMode.ADVENTURE);
+            player.teleport(plugin.getLobbyWorld().getSpawnLocation());
         }
+        Files.deleteWorld(world);
+        state = GameState.NONE;
+        players.clear();
+        jumpers.clear();
     }
 
     protected void ready(CommandSender admin) {
@@ -689,12 +695,12 @@ public final class VertigoGame {
                     count++;
                 }
             }
-            plugin.bossBar.name(textOfChildren(plugin.TITLE,
+            bossBar.name(textOfChildren(plugin.TITLE,
                                                text(" waiting for players. ", WHITE),
                                                text(count, GOLD),
                                                text(" joined so far.", WHITE)));
         } else if (state == GameState.COUNTDOWN_TO_START) {
-            plugin.bossBar.name(textOfChildren(plugin.TITLE, text(" starting...", WHITE)));
+            bossBar.name(textOfChildren(plugin.TITLE, text(" starting...", WHITE)));
         } else if (state == GameState.RUNNING) {
             List<Component> t = new ArrayList<>();
             if (map.currentRingCenter != null) {
@@ -710,16 +716,16 @@ public final class VertigoGame {
                                      text("/", GRAY),
                                      text(subscript(jumpers.size()), WHITE)));
             }
-            plugin.bossBar.name(join(separator(space()), t));
+            bossBar.name(join(separator(space()), t));
         } else if (state == GameState.ENDED) {
-            plugin.bossBar.name(!winnerName.equals("")
+            bossBar.name(!winnerName.equals("")
                                 ? textOfChildren(text("Winner: ", WHITE), text(winnerName, AQUA))
                                 : text("It's a draw!", GRAY));
         }
         if (Double.isNaN(progress)) {
             progress = 0;
         }
-        plugin.bossBar.progress((float) progress);
+        bossBar.progress((float) progress);
     }
 
     private void sendMsgToAllPlayers(Component msg) {

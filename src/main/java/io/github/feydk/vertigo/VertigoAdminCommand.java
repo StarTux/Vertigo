@@ -8,7 +8,9 @@ import com.cavetale.core.playercache.PlayerCache;
 import com.winthier.creative.BuildWorld;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 
@@ -19,6 +21,12 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoPlugin> {
 
     @Override
     protected void onEnable() {
+        rootNode.addChild("list").denyTabCompletion()
+            .description("List all games")
+            .senderCaller(this::list);
+        rootNode.addChild("here").denyTabCompletion()
+            .description("Get game here")
+            .playerCaller(this::here);
         rootNode.addChild("start").arguments("<map>")
             .description("Start a game")
             .completers(CommandArgCompleter.supplyList(() -> listMapPaths(true)))
@@ -68,13 +76,28 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoPlugin> {
         return result;
     }
 
+    private void list(CommandSender sender) {
+        sender.sendMessage(text("Total " + plugin.games.getWorldGameMap().size() + " games", YELLOW));
+        for (Map.Entry<String, VertigoGame> entry : plugin.games.getWorldGameMap().entrySet()) {
+            sender.sendMessage(text(entry.getKey() + ": " + entry.getValue().getPlayerCount(), AQUA));
+        }
+    }
+
+    private void here(Player player) {
+        final VertigoGame game = plugin.games.of(player);
+        if (game == null) throw new CommandWarn("No game here!");
+        player.sendMessage(text("Game here: " + game.getPath(), AQUA));
+    }
+
     private boolean start(CommandSender sender, String[] args) {
         if (args.length != 1) return false;
         BuildWorld buildWorld = BuildWorld.findWithPath(args[0]);
         if (buildWorld == null || buildWorld.getRow().parseMinigame() != plugin.MINIGAME_TYPE) {
             throw new CommandWarn("Vertigo world not found: " + args[0]);
         }
-        plugin.loadAndPlayWorld(buildWorld, false);
+        plugin.loadAndPlayWorld(buildWorld, game -> {
+                game.setPublicGame(true);
+            });
         return true;
     }
 
@@ -84,26 +107,44 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoPlugin> {
         if (buildWorld == null || buildWorld.getRow().parseMinigame() != plugin.MINIGAME_TYPE) {
             throw new CommandWarn("Vertigo world not found: " + args[0]);
         }
-        plugin.loadAndPlayWorld(buildWorld, true);
+        plugin.loadAndPlayWorld(buildWorld, game -> {
+                game.setPublicGame(true);
+                game.setTesting(true);
+            });
         return true;
     }
 
-    private void forcewin(CommandSender sender) {
-        if (plugin.game == null || !plugin.mapLoaded) {
-            throw new CommandWarn("There is no map loaded!");
+    /**
+     * Find the game that the CommandSender most likely wants to
+     * address with a command.
+     * Either the game of the world they're in, or the public game.
+     */
+    private VertigoGame findBlindGame(CommandSender sender) {
+        if (sender instanceof Player player) {
+            VertigoGame game = plugin.games.in(player.getWorld());
+            if (game != null) return game;
         }
-        plugin.game.end();
-        sender.sendMessage(text("Game stopped", AQUA));
+        return plugin.games.getFirstGame();
+    }
+
+    private VertigoGame requireBlindGame(CommandSender sender) {
+        final VertigoGame game = findBlindGame(sender);
+        if (game == null) {
+            throw new CommandWarn("There is no active game!");
+        }
+        return game;
+    }
+
+    private void forcewin(CommandSender sender) {
+        final VertigoGame game = requireBlindGame(sender);
+        game.end();
+        sender.sendMessage(text("Game ended: " + game.getPath(), YELLOW));
     }
 
     private void stop(CommandSender sender) {
-        if (plugin.game == null || !plugin.mapLoaded) {
-            throw new CommandWarn("There is no map loaded!");
-        }
-        if (!plugin.discardGame()) {
-            throw new CommandWarn("The game world could not be unloaded");
-        }
-        sender.sendMessage(text("The game has been discarded", AQUA));
+        final VertigoGame game = requireBlindGame(sender);
+        plugin.games.discard(game);
+        sender.sendMessage(text("Game discarded: " + game.getPath(), YELLOW));
     }
 
     private boolean event(CommandSender sender, String[] args) {
