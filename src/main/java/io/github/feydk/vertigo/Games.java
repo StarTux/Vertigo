@@ -1,6 +1,7 @@
 package io.github.feydk.vertigo;
 
 import com.winthier.creative.BuildWorld;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,25 +29,24 @@ public final class Games {
         worldGameMap.clear();
     }
 
-    public VertigoGame getPublicGame() {
-        for (VertigoGame it : worldGameMap.values()) {
-            if (it.isPublicGame()) return it;
-        }
-        return null;
-    }
-
     public VertigoGame getFirstGame() {
         if (worldGameMap.isEmpty()) return null;
         return worldGameMap.values().iterator().next();
     }
 
-    public boolean hasPublicGame() {
-        return getPublicGame() != null;
+    public List<VertigoGame> getPublicGames() {
+        List<VertigoGame> result = new ArrayList<>();
+        for (VertigoGame it : worldGameMap.values()) {
+            if (it.isPublicGame()) result.add(it);
+        }
+        return result;
     }
 
-    public void discardPublicGame() {
-        VertigoGame game = getPublicGame();
-        if (game != null) discard(game);
+    public boolean hasPublicGame() {
+        for (VertigoGame it : worldGameMap.values()) {
+            if (it.isPublicGame()) return true;
+        }
+        return false;
     }
 
     public VertigoGame in(World world) {

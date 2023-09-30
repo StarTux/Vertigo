@@ -100,8 +100,8 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
     private void tick() {
         games.tick();
         final List<Player> online = new ArrayList<>(getLobbyWorld().getPlayers());
-        final VertigoGame publicGame = games.getPublicGame();
-        if (publicGame == null && online.size() < 2) {
+        final List<VertigoGame> publicGames = games.getPublicGames();
+        if (publicGames.isEmpty() && online.size() < 2) {
             // Nothing is going on.  Reset everything.
             MapVote.stop(MINIGAME_TYPE);
             lobbyBossBar.name(text("Waiting for players", DARK_RED));
@@ -112,8 +112,13 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
         }
         // Update the Server Sidebar and start or stop the minigame
         // vote.
-        if (publicGame != null) {
+        if (publicGames.size() > 1) {
             MapVote.stop(MINIGAME_TYPE);
+            serverSidebar(List.of(textOfChildren(WATER_BUCKET, text("/vertigo", YELLOW)),
+                                  textOfChildren(WATER_BUCKET, text(publicGames.size() + " groups playing", AQUA))));
+        } else if (publicGames.size() == 1) {
+            MapVote.stop(MINIGAME_TYPE);
+            VertigoGame publicGame = publicGames.get(0);
             if (publicGame.state == VertigoGame.GameState.ENDED && publicGame.stateTicks > publicGame.getEndDuration()) {
                 games.discard(publicGame);
             } else {
@@ -169,6 +174,7 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
                                                              + ", " + String.join(" ", names));
                                             VertigoGame newGame = games.startGame(result.getLocalWorldCopy(), result.getBuildWorldWinner(), group);
                                             newGame.setPublicGame(true);
+                                            for (var p : players) newGame.addLateJoinBlacklist(p);
                                         });
                                 }
                             });
@@ -195,25 +201,41 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
+        final Player player = event.getPlayer();
         final VertigoGame game = games.at(event.getSpawnLocation());
         if (game != null && game.world != null) {
             event.setSpawnLocation(game.getSpawnLocation());
             return;
         }
-        final VertigoGame publicGame = games.getPublicGame();
+        int min = 0;
+        VertigoGame publicGame = null;
+        for (var it : games.getPublicGames()) {
+            if (it.findPlayer(player) == null && it.isLateJoinBlacklisted(player)) continue;
+            if (publicGame == null || it.getPlayerCount() < min) {
+                publicGame = it;
+                min = it.getPlayerCount();
+            }
+        }
         if (publicGame != null) {
             event.setSpawnLocation(publicGame.getSpawnLocation());
             return;
+        } else {
+            event.setSpawnLocation(getLobbyWorld().getSpawnLocation());
         }
-        event.setSpawnLocation(getLobbyWorld().getSpawnLocation());
     }
 
+    /**
+     * Late joining if you're not already in a game or were
+     * blacklisted during the previous vote.
+     */
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         final Player player = event.getPlayer();
         final VertigoGame game = games.in(player.getWorld());
         if (game != null) {
-            player.setGameMode(GameMode.SPECTATOR);
+            if (game.state != VertigoGame.GameState.ENDED && !game.isLateJoinBlacklisted(player)) {
+                game.joinPlayer(player, false);
+            }
         } else if (player.getWorld().equals(getLobbyWorld())) {
             player.setGameMode(GameMode.ADVENTURE);
         }
@@ -222,7 +244,7 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         final Player player = event.getPlayer();
-        games.applyEntity(player, game -> game.leave(player));
+        games.applyEntity(player, game -> game.playerDidLogout(player));
     }
 
     @EventHandler

@@ -11,6 +11,7 @@ import com.winthier.creative.review.MapReview;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -69,7 +70,6 @@ public final class VertigoGame {
     protected GameMap map;
     protected final String mapName;
     protected GameState state = GameState.NONE;
-    protected List<VertigoPlayer> players = new ArrayList<>();
     @Setter protected boolean publicGame = false;
     @Setter private boolean testing = false;
 
@@ -84,7 +84,9 @@ public final class VertigoGame {
     protected BossBar bossBar;
 
     // Stuff for keeping track of jumpers.
-    List<VertigoPlayer> jumpers = new ArrayList<>();
+    protected final List<VertigoPlayer> players = new ArrayList<>();
+    protected final List<VertigoPlayer> jumpers = new ArrayList<>();
+    protected final HashSet<UUID> lateJoinBlacklist = new HashSet<>();
     private int currentJumperIndex = 0;
     private long jumperTicks = 0;
     private boolean currentJumperHasJumped;
@@ -202,18 +204,23 @@ public final class VertigoGame {
         vp.isPlaying = !spectator;
         vp.wasPlaying = vp.isPlaying;
         player.setGameMode(GameMode.SPECTATOR);
-        if (vp.isPlaying) {
-            jumpers.add(vp);
-        }
         player.removePotionEffect(PotionEffectType.LEVITATION);
         player.removePotionEffect(PotionEffectType.SLOW_FALLING);
-        player.setGameMode(GameMode.SPECTATOR);
         player.teleport(vp.getSpawnLocation());
         player.playSound(player.getEyeLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.MASTER, 1, 1);
         player.showTitle(title(text("Welcome to Vertigo", GREEN), empty()));
+        player.setFoodLevel(20);
+        player.setSaturation(20f);
+        player.setHealth(20.0);
+        lateJoinBlacklist.add(player.getUniqueId());
         if (plugin.state.event && !testing) {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ml add " + player.getName());
         }
+    }
+
+    protected void playerDidLogout(Player player) {
+        VertigoPlayer vp = findPlayer(player);
+        if (vp != null) jumpers.remove(vp);
     }
 
     protected void leave(Player player) {
@@ -257,8 +264,6 @@ public final class VertigoGame {
             return;
         }
         GameState newState = null;
-        // Check for disconnects.
-        removeDisconnectedPlayers();
         if (state == GameState.RUNNING) {
             // Check if only one player is left.
             int aliveCount = 0;
@@ -404,13 +409,6 @@ public final class VertigoGame {
                 }
             }
             moreThanOnePlayed = count > 1;
-            // Make jump order.
-            jumpers.clear();
-            for (VertigoPlayer vp : players) {
-                if (vp.isPlaying) {
-                    jumpers.add(vp);
-                }
-            }
             currentJumperIndex = 0;
         } else if (newState == GameState.RUNNING) {
             startRound();
@@ -432,6 +430,14 @@ public final class VertigoGame {
     }
 
     private void startRound() {
+        // Build jumper list
+        jumpers.clear();
+        for (VertigoPlayer vp : players) {
+            if (vp.isPlaying && vp.isOnline()) {
+                jumpers.add(vp);
+            }
+        }
+        // Order jumpers
         currentRound += 1;
         int order = 1;
         Collections.shuffle(jumpers);
@@ -813,29 +819,6 @@ public final class VertigoGame {
         }
     }
 
-    private void removeDisconnectedPlayers() {
-        if (players.size() > 0) {
-            List<VertigoPlayer> list = new ArrayList<>();
-            for (VertigoPlayer vp : players) {
-                Player p = vp.getPlayer();
-                boolean remove = false;
-                if (p == null) {
-                    remove = true;
-                }
-                if (p != null && !p.isOnline()) {
-                    remove = true;
-                }
-                if (p != null && !p.getWorld().getName().equals(world.getName())) {
-                    remove = true;
-                }
-                if (!remove) {
-                    list.add(vp);
-                }
-            }
-            players = list;
-        }
-    }
-
     private void callMatchEvent() {
         if (testing) return;
         MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MinigameMatchType.VERTIGO);
@@ -894,5 +877,13 @@ public final class VertigoGame {
                            text(vp.name),
                            text(superscript(vp.order), DARK_GRAY)));
         }
+    }
+
+    public boolean isLateJoinBlacklisted(Player player) {
+        return lateJoinBlacklist.contains(player.getUniqueId());
+    }
+
+    public void addLateJoinBlacklist(Player player) {
+        lateJoinBlacklist.add(player.getUniqueId());
     }
 }

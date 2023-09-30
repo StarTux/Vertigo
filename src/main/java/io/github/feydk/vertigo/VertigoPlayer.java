@@ -8,7 +8,7 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 @Getter
-class VertigoPlayer {
+public final class VertigoPlayer {
     private VertigoGame game;
     protected final UUID uuid;
     protected final String name;
@@ -20,31 +20,35 @@ class VertigoPlayer {
     protected int order;
     protected int score;
 
-    Player getPlayer() {
+    public Player getPlayer() {
         return Bukkit.getPlayer(uuid);
     }
 
-    VertigoPlayer(final VertigoGame game, final Player player) {
+    public boolean isOnline() {
+        return getPlayer() != null;
+    }
+
+    public VertigoPlayer(final VertigoGame game, final Player player) {
         this.game = game;
         this.uuid = player.getUniqueId();
         this.name = player.getName();
     }
 
     // Set player as participant.
-    void setJumper() {
+    public void setJumper() {
         Player player = getPlayer();
         if (player != null) player.setGameMode(GameMode.ADVENTURE);
     }
 
     // Set player as spectator.
-    void setSpectator() {
+    public void setSpectator() {
         Player player = getPlayer();
         if (player != null) player.setGameMode(GameMode.SPECTATOR);
         //player.setAllowFlight(true);
         //player.setFlying(true);
     }
 
-    Location getSpawnLocation() {
+    public Location getSpawnLocation() {
         if (spawnLocation == null) {
             spawnLocation = game.map.dealSpawnLocation();
         }
