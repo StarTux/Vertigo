@@ -10,6 +10,7 @@ import com.winthier.creative.BuildWorld;
 import com.winthier.creative.vote.MapVote;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import net.kyori.adventure.bossbar.BossBar;
@@ -137,10 +138,40 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
                 MapVote.start(MINIGAME_TYPE, vote -> {
                         vote.setTitle(TITLE);
                         vote.setCallback(result -> {
-                                VertigoGame newGame = games.startGame(result.getLocalWorldCopy(), result.getBuildWorldWinner());
+                                // This will be cancelled by
+                                // setVoteHandler, but we're keeping
+                                // it for documentation.
+                                VertigoGame newGame = games.startGame(result.getLocalWorldCopy(), result.getBuildWorldWinner(), getLobbyWorld().getPlayers());
                                 newGame.setPublicGame(true);
                             });
                         vote.setLobbyWorld(getLobbyWorld());
+                        vote.setVoteHandler(v -> {
+                                List<Player> players = new ArrayList<>(getLobbyWorld().getPlayers());
+                                Collections.shuffle(players);
+                                List<List<Player>> groups = new ArrayList<>();
+                                final int desiredGroupSize = 4;
+                                while (players.size() >= desiredGroupSize) {
+                                    List<Player> currentGroup = new ArrayList<>();
+                                    groups.add(currentGroup);
+                                    for (int i = 0; i < desiredGroupSize; i += 1) {
+                                        currentGroup.add(players.remove(players.size() - 1));
+                                    }
+                                }
+                                for (int i = 0; i < players.size(); i += 1) {
+                                    groups.get(i % groups.size()).add(players.get(i));
+                                }
+                                for (List<Player> group : groups) {
+                                    v.findAndLoadWinnersFor(group, result -> {
+                                            List<String> names = new ArrayList<>();
+                                            for (var p : group) names.add(p.getName());
+                                            getLogger().info("Group game: " + result.getLocalWorldCopy()
+                                                             + ", " + result.getBuildWorldWinner().getPath()
+                                                             + ", " + String.join(" ", names));
+                                            VertigoGame newGame = games.startGame(result.getLocalWorldCopy(), result.getBuildWorldWinner(), group);
+                                            newGame.setPublicGame(true);
+                                        });
+                                }
+                            });
                     });
             }
         }
@@ -152,17 +183,14 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
             throw new IllegalStateException("Not a Vertigo world: " + buildWorld.getName());
         }
         buildWorld.makeLocalCopyAsync(world -> {
-                VertigoGame newGame = games.startGame(world, buildWorld);
+                VertigoGame newGame = games.startGame(world, buildWorld, getLobbyWorld().getPlayers());
                 callback.accept(newGame);
             });
     }
 
     @EventHandler
     public void onPlayerWorldChange(PlayerChangedWorldEvent event) {
-        final VertigoGame game = games.in(event.getFrom());
-        if (game != null) {
-            game.leave(event.getPlayer());
-        }
+        games.applyIn(event.getFrom(), game -> game.leave(event.getPlayer()));
     }
 
     @EventHandler

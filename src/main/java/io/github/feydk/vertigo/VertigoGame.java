@@ -416,12 +416,12 @@ public final class VertigoGame {
             startRound();
         } else if (newState == GameState.ENDED) {
             if (!winnerName.equals("")) {
-                sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(winnerName + " wins the game!", BLUE)));
+                sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(" " + winnerName + " wins the game!", BLUE)));
                 if (plugin.state.event && !testing) {
                     Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "titles unlockset " + winnerName + " Splash Jumper WaterBucket");
                 }
             } else {
-                sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text("Draw! Nobody wins.", AQUA)));
+                sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(" Draw! Nobody wins.", AQUA)));
             }
             playSoundForAllPlayers(Sound.UI_TOAST_CHALLENGE_COMPLETE);
             for (VertigoPlayer vp : players) {
@@ -642,14 +642,15 @@ public final class VertigoGame {
             "had a bad case of vertigo."
         };
         String string = strings[r.nextInt(strings.length)];
-        sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(vp.name + " ", DARK_AQUA), text(string, RED)));
+        sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(" " + vp.name + " ", DARK_AQUA), text(string, RED)));
         // This might be fired after the player has disconnected.
         vp.setSpectator();
         vp.timeouts++;
         // Player has most likely gone afk.
         if (vp.timeouts >= 3) {
             vp.isPlaying = false;
-            sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(vp.name + " ", RED), text("was disqualified for failing to make 3 jumps in time.", GRAY)));
+            sendMsgToAllPlayers(textOfChildren(plugin.TITLE, text(" " + vp.name + " ", RED),
+                                               text("was disqualified for failing to make 3 jumps in time.", GRAY)));
         }
         if (player != null) {
             player.teleport(vp.getSpawnLocation());

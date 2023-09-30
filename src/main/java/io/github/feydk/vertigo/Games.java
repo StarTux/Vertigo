@@ -76,11 +76,11 @@ public final class Games {
         if (game != null) callback.accept(game);
     }
 
-    public VertigoGame startGame(World world, BuildWorld buildWorld) {
+    public VertigoGame startGame(World world, BuildWorld buildWorld, List<Player> players) {
         VertigoGame game = new VertigoGame(plugin(), world, buildWorld);
         if (game.setup(Bukkit.getConsoleSender())) {
             game.ready(Bukkit.getConsoleSender());
-            for (Player player : plugin().getLobbyWorld().getPlayers()) {
+            for (Player player : players) {
                 game.joinPlayer(player, false); // Player, isSpectator
             }
             game.start();
