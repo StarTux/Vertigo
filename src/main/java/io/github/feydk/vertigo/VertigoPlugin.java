@@ -151,10 +151,15 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
                             });
                         vote.setLobbyWorld(getLobbyWorld());
                         vote.setVoteHandler(v -> {
-                                List<Player> players = new ArrayList<>(getLobbyWorld().getPlayers());
+                                final List<Player> allPlayers = getLobbyWorld().getPlayers();
+                                final List<Player> players = new ArrayList<>(allPlayers);
                                 Collections.shuffle(players);
                                 List<List<Player>> groups = new ArrayList<>();
                                 final int desiredGroupSize = 4;
+                                if (players.size() < desiredGroupSize) {
+                                    groups.add(List.copyOf(players));
+                                    players.clear();
+                                }
                                 while (players.size() >= desiredGroupSize) {
                                     List<Player> currentGroup = new ArrayList<>();
                                     groups.add(currentGroup);
@@ -174,7 +179,7 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
                                                              + ", " + String.join(" ", names));
                                             VertigoGame newGame = games.startGame(result.getLocalWorldCopy(), result.getBuildWorldWinner(), group);
                                             newGame.setPublicGame(true);
-                                            for (var p : players) newGame.addLateJoinBlacklist(p);
+                                            for (var p : allPlayers) newGame.addLateJoinBlacklist(p);
                                         });
                                 }
                             });
