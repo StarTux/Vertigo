@@ -518,8 +518,9 @@ public final class VertigoGame {
     }
 
     private void playerLandedBadly(Player player, Location landingLocation) {
+        if (player.getGameMode() != GameMode.ADVENTURE) return;
         VertigoPlayer vp = findPlayer(player);
-        if (vp == null) return;
+        if (vp == null || !vp.isPlaying()) return;
         player.sendActionBar(empty());
         world.spawnParticle(Particle.EXPLOSION_LARGE, landingLocation, 50, .5f, .5f, .5f, .5f);
         vp.setSpectator();
