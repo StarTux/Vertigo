@@ -480,8 +480,13 @@ public final class VertigoGame {
 
     protected void playerDamage(Player player, EntityDamageEvent event) {
         // Player is below jump threshold and took fall damage. Ie he didn't land in water.
-        if (event.getCause() == DamageCause.FALL || event.getCause() == DamageCause.VOID) {
+        switch (event.getCause()) {
+        case FALL:
+        case VOID:
+        case FIRE:
+        case LAVA:
             playerLandedBadly(player, player.getLocation());
+        default: break;
         }
     }
 
