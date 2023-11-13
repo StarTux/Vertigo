@@ -37,8 +37,8 @@ import org.bukkit.block.Skull;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
@@ -375,6 +375,14 @@ public final class VertigoGame {
                     Player player = currentJumper.getPlayer();
                     if (player != null) player.sendActionBar(msg);
                 }
+            }
+        }
+        if (currentJumper != null && currentJumperHasJumped) {
+            Player player = currentJumper.getPlayer();
+            if (player == null) return null;
+            if (((LivingEntity) player).isOnGround()) {
+                playerLandedBadly(player, player.getLocation());
+                return null;
             }
         }
         return null;
