@@ -481,6 +481,9 @@ public final class VertigoGame {
                                          Duration.ofSeconds(1),
                                          Duration.ofSeconds(0))));
             player.playSound(player.getEyeLocation(), Sound.BLOCK_BELL_USE, SoundCategory.MASTER, 1, 1);
+            if (!player.getInventory().contains(Material.SPYGLASS)) {
+                player.getInventory().addItem(new ItemStack(Material.SPYGLASS));
+            }
         }
         jumperTicks = 0;
         currentJumper = vp;
