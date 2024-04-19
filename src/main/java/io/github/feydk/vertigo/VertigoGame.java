@@ -840,7 +840,10 @@ public final class VertigoGame {
         if (testing) return;
         MinigameMatchCompleteEvent event = new MinigameMatchCompleteEvent(MinigameMatchType.VERTIGO);
         if (plugin.state.event) event.addFlags(MinigameFlag.EVENT);
-        for (VertigoPlayer vp : players) event.addPlayerUuid(vp.uuid);
+        for (VertigoPlayer vp : players) {
+            if (vp.getScore() <= 0) continue;
+            event.addPlayerUuid(vp.uuid);
+        }
         event.addWinnerUuids(winnerUuids);
         event.callEvent();
     }
