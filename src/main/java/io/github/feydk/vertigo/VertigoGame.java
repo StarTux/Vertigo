@@ -3,6 +3,7 @@ package io.github.feydk.vertigo;
 import com.cavetale.core.event.minigame.MinigameFlag;
 import com.cavetale.core.event.minigame.MinigameMatchCompleteEvent;
 import com.cavetale.core.event.minigame.MinigameMatchType;
+import com.cavetale.core.money.Money;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.font.Glyph;
 import com.winthier.creative.BuildWorld;
@@ -433,6 +434,9 @@ public final class VertigoGame {
             for (VertigoPlayer vp : players) {
                 Player player = vp.getPlayer();
                 if (player != null) player.setGameMode(GameMode.SPECTATOR);
+                if (plugin.state.event && vp.score > 0) {
+                    Money.get().give(vp.uuid, vp.score * 100, plugin, "Vertigo Event");
+                }
             }
         }
     }
