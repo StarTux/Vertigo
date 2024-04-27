@@ -434,9 +434,18 @@ public final class VertigoGame {
             for (VertigoPlayer vp : players) {
                 Player player = vp.getPlayer();
                 if (player != null) player.setGameMode(GameMode.SPECTATOR);
-                if (plugin.state.event && vp.score > 0) {
-                    Money.get().give(vp.uuid, vp.score * 100, plugin, "Vertigo Event");
+                if (plugin.state.event) {
+                    if (winnerUuids.contains(vp.uuid)) {
+                        plugin.state.addScore(vp.uuid, 10);
+                        Money.get().give(vp.uuid, 1000.0, plugin, "Vertigo Event");
+                    }
+                    if (vp.score > 0) {
+                        Money.get().give(vp.uuid, vp.score * 100, plugin, "Vertigo Event");
+                    }
                 }
+            }
+            if (plugin.state.event) {
+                plugin.computeHighscore();
             }
         }
     }
