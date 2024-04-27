@@ -279,9 +279,6 @@ public final class VertigoGame {
             } else if (map.getWaterLeft() <= 0) {
                 log("Stopping game because there is no water left");
                 newState = GameState.ENDED;
-            } else if (currentJumperIndex == 0 && isSomeoneLeadingBy(10)) {
-                log("Stopping game because someone is leading by 10");
-                newState = GameState.ENDED;
             }
             if (newState == GameState.ENDED) {
                 findWinner();
