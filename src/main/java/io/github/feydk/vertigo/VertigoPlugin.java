@@ -19,6 +19,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -298,7 +299,7 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        games.applyEntity(event.getPlayer(), game -> event.setCancelled(true));
+        games.applyEntity(event.getPlayer(), game -> event.setUseInteractedBlock(Event.Result.DENY));
     }
 
     @EventHandler
