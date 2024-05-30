@@ -531,7 +531,7 @@ public final class VertigoGame {
             Location f = event.getFrom();
             Location t = event.getTo();
             if ((t.getBlockX() == rx && t.getBlockZ() == rz || f.getBlockX() == rx && f.getBlockZ() == rz) && (t.getBlockY() <= ry && f.getBlockY() >= ry)) {
-                world.spawnParticle(Particle.REDSTONE, map.currentRingCenter, 50, 2f, 2f, 2f, .2f, new Particle.DustOptions(org.bukkit.Color.YELLOW, 10.0f));
+                world.spawnParticle(Particle.DUST, map.currentRingCenter, 50, 2f, 2f, 2f, .2f, new Particle.DustOptions(org.bukkit.Color.YELLOW, 10.0f));
                 currentJumperPassedRing = true;
             }
         }
@@ -548,7 +548,7 @@ public final class VertigoGame {
         VertigoPlayer vp = findPlayer(player);
         if (vp == null || !vp.isPlaying()) return;
         player.sendActionBar(empty());
-        world.spawnParticle(Particle.EXPLOSION_LARGE, landingLocation, 50, .5f, .5f, .5f, .5f);
+        world.spawnParticle(Particle.EXPLOSION, landingLocation, 50, .5f, .5f, .5f, .5f);
         vp.setSpectator();
         player.setVelocity(new Vector(0, 0, 0));
         player.setFallDistance(0);
@@ -624,7 +624,7 @@ public final class VertigoGame {
             plugin.computeHighscore();
             plugin.saveState();
         }
-        world.spawnParticle(Particle.WATER_SPLASH, landingLocation, 50, .5f, 4f, .5f, .1f);
+        world.spawnParticle(Particle.SPLASH, landingLocation, 50, .5f, 4f, .5f, .1f);
         ItemStack r = map.getRandomBlock();
         landingLocation.getBlock().setType(r.getType(), true);
         Block head = landingLocation.getBlock().getRelative(BlockFace.UP);
