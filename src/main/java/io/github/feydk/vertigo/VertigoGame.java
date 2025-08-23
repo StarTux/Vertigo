@@ -431,17 +431,32 @@ public final class VertigoGame {
             for (VertigoPlayer vp : players) {
                 Player player = vp.getPlayer();
                 if (player != null) player.setGameMode(GameMode.SPECTATOR);
-                if (plugin.state.event) {
-                    if (winnerUuids.contains(vp.uuid)) {
-                        plugin.state.addScore(vp.uuid, 10);
-                        Money.get().give(vp.uuid, 1000.0, plugin, "Vertigo Event");
-                    }
-                    if (vp.score > 0) {
-                        Money.get().give(vp.uuid, vp.score * 100, plugin, "Vertigo Event");
-                    }
-                }
             }
             if (plugin.state.event) {
+                // During and event, we give the winners 10 points,
+                // the 2nd placed players 7 points, then 4, then 1.
+                // And everybody gets some money for their score.
+                players.sort(comparingInt(VertigoPlayer::getScore).reversed());
+                int currentScore = players.get(0).getScore();
+                int scoreBonus = 10;
+                for (VertigoPlayer vp : players) {
+                    if (winnerUuids.contains(vp.uuid)) {
+                        Money.get().give(vp.uuid, 10_000, plugin, "Vertigo Event");
+                    } else {
+                        Money.get().give(vp.uuid, 1000, plugin, "Vertigo Event");
+                    }
+                    if (vp.score > 0) {
+                        if (currentScore != vp.score) {
+                            currentScore = vp.score;
+                            scoreBonus -= 3;
+                        }
+                        if (scoreBonus > 0) {
+                            plugin.getLogger().info(scoreBonus + " bonus points for " + vp.name);
+                            plugin.state.addScore(vp.uuid, scoreBonus);
+                        }
+                    }
+                }
+                plugin.saveState();
                 plugin.computeHighscore();
             }
         }
@@ -559,11 +574,6 @@ public final class VertigoGame {
         if (currentJumperPassedRing) {
             score += 1;
             vp.score += score;
-            if (plugin.state.event) {
-                plugin.state.addScore(vp.uuid, score);
-                plugin.computeHighscore();
-                plugin.saveState();
-            }
             map.removeRing();
             msg = textOfChildren(text("Splat! ", RED), text(player.getName() + " ", DARK_AQUA), text(score + " point", GOLD));
         }
@@ -619,11 +629,6 @@ public final class VertigoGame {
         }
         player.showTitle(title(empty(), textOfChildren(text("Splash! ", BLUE), text(score + " point" + (score > 1 ? "s" : ""), GOLD))));
         vp.score += score;
-        if (plugin.state.event) {
-            plugin.state.addScore(vp.uuid, score);
-            plugin.computeHighscore();
-            plugin.saveState();
-        }
         world.spawnParticle(Particle.SPLASH, landingLocation, 50, .5f, 4f, .5f, .1f);
         ItemStack r = map.getRandomBlock();
         landingLocation.getBlock().setType(r.getType(), true);
