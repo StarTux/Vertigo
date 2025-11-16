@@ -5,6 +5,8 @@ import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandNode;
 import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.playercache.PlayerCache;
+import com.cavetale.fam.trophy.Highscore;
+import com.cavetale.mytems.item.trophy.TrophyCategory;
 import com.winthier.creative.BuildWorld;
 import java.util.ArrayList;
 import java.util.List;
@@ -199,7 +201,15 @@ public final class VertigoAdminCommand extends AbstractCommand<VertigoPlugin> {
     }
 
     private void scoreReward(CommandSender sender) {
-        int count = plugin.rewardHighscore();
+        final int count = Highscore.reward(
+            plugin.getState().getScores(),
+            "vertigo_event",
+            TrophyCategory.VERTIGO,
+            VertigoPlugin.TOURNAMENT_TITLE,
+            hi -> "You collected " + hi.score + " point" + (hi.score == 1 ? "" : "s")
+            + " at Vertigo!"
+        );
         sender.sendMessage(text(count + " highscores rewarded", AQUA));
+        Highscore.rewardMoneyWithFeedback(sender, plugin, plugin.getState().getScores(), "Vertigo Tournament");
     }
 }

@@ -3,7 +3,9 @@ package io.github.feydk.vertigo;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import lombok.Getter;
 
+@Getter
 public final class State {
     protected boolean event;
     protected boolean pause;

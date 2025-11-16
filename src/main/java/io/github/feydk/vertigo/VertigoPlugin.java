@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import lombok.Getter;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -44,6 +45,7 @@ import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
 
+@Getter
 public final class VertigoPlugin extends JavaPlugin implements Listener {
     private static VertigoPlugin instance;
     protected boolean debug = true;
@@ -329,15 +331,6 @@ public final class VertigoPlugin extends JavaPlugin implements Listener {
     protected void computeHighscore() {
         highscore = Highscore.of(state.scores);
         highscoreLines = Highscore.sidebar(highscore, TrophyCategory.VERTIGO);
-    }
-
-    protected int rewardHighscore() {
-        return Highscore.reward(state.scores,
-                                "vertigo_event",
-                                TrophyCategory.VERTIGO,
-                                TOURNAMENT_TITLE,
-                                hi -> "You collected " + hi.score + " point" + (hi.score == 1 ? "" : "s")
-                                + " at Vertigo!");
     }
 
     public static VertigoPlugin plugin() {
