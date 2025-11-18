@@ -2,7 +2,7 @@ name: Vertigo
 description: Vertigo Minigame
 authors: [ feydk, StarTux ]
 version: 1.0
-api-version: '1.21.8'
+api-version: '1.21.10'
 website: https://cavetale.com
 main: io.github.feydk.vertigo.VertigoPlugin
 depend: [Core, PlayerCache, Mytems, Title, Sidebar, Fam, Creative]
